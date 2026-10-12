@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import type { CustomProvider } from "@siftory/protocol";
 import { deleteCustomProvider, upsertCustomProvider } from "../api/client";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Field, FieldLabel } from "./ui/field";
+import { Alert, AlertDescription } from "./ui/alert";
 
 /** 自定义 OpenAI 兼容供应商：baseUrl + 模型列表 + key，upsert 到 providers.json / auth.json */
 export function CustomProvidersSection(props: {
@@ -64,9 +68,7 @@ export function CustomProvidersSection(props: {
 	return (
 		<>
 			{error && (
-				<div className="error" role="alert">
-					{error}
-				</div>
+				<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
 			)}
 			<h2>自定义供应商（OpenAI 兼容）</h2>
 			{props.providers.map((p) => (
@@ -76,50 +78,54 @@ export function CustomProvidersSection(props: {
 						<span>{p.baseUrl}</span>
 						<span className="hint">{p.models.join("、")}</span>
 					</div>
-					<button className="link danger" onClick={() => remove(p.id)}>
+					<Button variant="destructive" onClick={() => remove(p.id)}>
 						删除
-					</button>
+					</Button>
 				</div>
 			))}
-			<label>
-				名称
-				<input
+			<Field>
+				<FieldLabel htmlFor="custom-name">名称</FieldLabel>
+				<Input
+					id="custom-name"
 					value={name}
 					placeholder="例：我的中转站"
 					onChange={(e) => setName(e.target.value)}
 				/>
-			</label>
-			<label>
-				Base URL
-				<input
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="custom-url">Base URL</FieldLabel>
+				<Input
+					id="custom-url"
 					value={baseUrl}
 					placeholder="https://api.example.com/v1"
 					onChange={(e) => setBaseUrl(e.target.value)}
 				/>
-			</label>
-			<label>
-				模型列表（逗号或空格分隔）
-				<input
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="custom-models">模型列表（逗号或空格分隔）</FieldLabel>
+				<Input
+					id="custom-models"
 					value={models}
 					placeholder="gpt-4o-mini, deepseek-chat"
 					onChange={(e) => setModels(e.target.value)}
 				/>
-			</label>
-			<label>
-				API Key
-				<input
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="custom-key">API Key</FieldLabel>
+				<Input
+					id="custom-key"
 					type="password"
 					value={apiKey}
 					placeholder="sk-…"
 					onChange={(e) => setApiKey(e.target.value)}
 				/>
-			</label>
-			<button
+			</Field>
+			<Button
 				onClick={add}
 				disabled={saving || !name.trim() || !baseUrl.trim() || !models.trim()}
 			>
 				{saving ? "添加中…" : "添加供应商"}
-			</button>
+			</Button>
 		</>
 	);
 }

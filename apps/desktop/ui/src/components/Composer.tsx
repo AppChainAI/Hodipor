@@ -1,4 +1,8 @@
 import { useRef, useState } from "react";
+import { ArrowUp, Square } from "lucide-react";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { Alert, AlertDescription } from "./ui/alert";
 
 export function Composer(props: {
 	busy: boolean;
@@ -38,21 +42,20 @@ export function Composer(props: {
 		}
 	};
 	return (
-		<div>
+		<div className="composer-area">
 			{error && (
-				<div className="error" role="alert">
-					{error}
-				</div>
+				<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
 			)}
 			{props.busy && (
 				<div className="hint">新消息将排队，在当前任务完成后执行。</div>
 			)}
 			<div className="composer">
-				<textarea
+				<Textarea
+					className="composer-input"
 					value={text}
 					aria-label="主题或任务"
 					placeholder="给 Siftory 一个主题或任务…"
-					rows={3}
+					rows={2}
 					onChange={(event) => setText(event.target.value)}
 					onKeyDown={(event) => {
 						if (
@@ -65,21 +68,25 @@ export function Composer(props: {
 						}
 					}}
 				/>
-				{props.busy && (
-					<button
-						className="stop"
-						disabled={!props.connected}
-						onClick={() => void stop()}
+				<div className="composer-actions">
+					{props.busy && (
+						<Button
+							variant="destructive"
+							disabled={!props.connected}
+							onClick={() => void stop()}
+						>
+							<Square aria-hidden="true" className="size-3.5 fill-current" />
+							停止
+						</Button>
+					)}
+					<Button
+						disabled={!text.trim() || sending || !props.connected}
+						onClick={() => void send()}
 					>
-						停止
-					</button>
-				)}
-				<button
-					disabled={!text.trim() || sending || !props.connected}
-					onClick={() => void send()}
-				>
-					{sending ? "发送中…" : props.busy ? "排队发送" : "发送"}
-				</button>
+						{sending ? "发送中…" : props.busy ? "排队发送" : "发送"}
+						<ArrowUp aria-hidden="true" />
+					</Button>
+				</div>
 			</div>
 		</div>
 	);

@@ -4,6 +4,8 @@ A desktop foundation for an AI research-to-video agent: React/Vite frontend, Tau
 
 **Current scope:** persistent chat, model/provider configuration, streaming, cancellation and desktop process supervision. Research, synthesis, narration and rendering extensions currently supply prompts; research tools and the video workflow are not implemented yet. See [product](docs/product.md) and [architecture](docs/architecture.md).
 
+The frontend uses shadcn/ui (Base UI) and Tailwind CSS v4 with a shared light/dark/system theme. See the [UI foundation](docs/ui.md).
+
 ## Development
 
 Prerequisites: Bun 1.4.2, Rust and the [Tauri platform dependencies](https://v2.tauri.app/start/prerequisites/).

@@ -10,6 +10,8 @@ import {
 } from "./api/client";
 import { Composer } from "./components/Composer";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { Button } from "./components/ui/button";
+import { Alert, AlertDescription } from "./components/ui/alert";
 
 export function App() {
 	const [snapshot, setSnapshot] = useState<ChatSnapshot>();
@@ -97,14 +99,16 @@ export function App() {
 	useEffect(() => {
 		// 花括号必需：表达式体会把 scrollIntoView 的返回值当 cleanup，React 报 "destroy is not a function"
 		if (followOutput.current)
-			bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+			bottomRef.current?.scrollIntoView({
+				behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+			});
 	}, [snapshot]);
 
 	const busy = snapshot?.busy ?? false;
 
 	return (
 		<div className="app">
-			<header>
+			<header className="app-header">
 				<h1 className="brand">
 					<img className="brand-logo" src="/logo.png" alt="" width={32} height={32} />
 					Siftory
@@ -114,8 +118,8 @@ export function App() {
 						? `${snapshot.model.provider}/${snapshot.model.modelId}`
 						: "未配置模型"}
 				</span>
-				<button
-					className="link"
+				<Button
+					variant="ghost"
 					onClick={() => {
 						setResetError(undefined);
 						void resetChat().catch((error: unknown) =>
@@ -126,15 +130,13 @@ export function App() {
 					}}
 				>
 					新会话
-				</button>
+				</Button>
 				{resetError && (
-					<span className="error" role="alert">
-						{resetError}
-					</span>
+					<Alert variant="destructive" className="w-auto"><AlertDescription>{resetError}</AlertDescription></Alert>
 				)}
-				<button className="link" onClick={() => setShowSettings(!showSettings)}>
+				<Button variant="ghost" onClick={() => setShowSettings(!showSettings)}>
 					{showSettings ? "返回对话" : "设置"}
-				</button>
+				</Button>
 			</header>
 
 			{showSettings ? (
@@ -142,6 +144,7 @@ export function App() {
 			) : (
 				<>
 					<main
+						className="conversation"
 						ref={mainRef}
 						onScroll={(event) => {
 							const element = event.currentTarget;
@@ -153,18 +156,16 @@ export function App() {
 						}}
 					>
 						{historyBefore && (
-							<button
-								className="link"
+							<Button
+								variant="ghost"
 								disabled={loadingHistory}
 								onClick={() => void loadHistory()}
 							>
 								{loadingHistory ? "加载中…" : "加载更早的消息"}
-							</button>
+							</Button>
 						)}
 						{historyError && (
-							<div className="error" role="alert">
-								{historyError}
-							</div>
+							<Alert variant="destructive"><AlertDescription>{historyError}</AlertDescription></Alert>
 						)}
 						{connection !== "connected" && (
 							<div role="status">
@@ -189,13 +190,13 @@ export function App() {
 							</div>
 						)}
 						{snapshot?.lastError && (
-							<div className="error">
+							<Alert variant="destructive"><AlertDescription>
 								出错：
 								{{
 									no_model: "请先在设置中选择模型",
 									error: "模型请求失败，请检查配置后重试",
 								}[snapshot.lastError] ?? snapshot.lastError}
-							</div>
+							</AlertDescription></Alert>
 						)}
 						<div ref={bottomRef} />
 					</main>

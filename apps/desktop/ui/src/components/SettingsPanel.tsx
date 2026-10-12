@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import type { ConfigView, ThinkingLevel } from "@siftory/protocol";
 import { getConfig, putConfig } from "../api/client";
 import { CustomProvidersSection } from "./CustomProvidersSection";
+import { Button } from "./ui/button";
+import { Field, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Textarea } from "./ui/textarea";
+import { Alert, AlertDescription } from "./ui/alert";
+import { useTheme } from "./ThemeProvider";
+import { parseTheme } from "../theme";
 
 const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 	{ value: "off", label: "关闭思考" },
@@ -15,6 +23,7 @@ const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 
 /** 提供商 + 会话级 LLM 配置面板。model/thinkingLevel/instructions 存会话的 pi.agent（SQLite），key 存 auth.json */
 export function SettingsPanel(props: { onSaved: () => void }) {
+	const { preference, setPreference } = useTheme();
 	const [config, setConfig] = useState<ConfigView>();
 	const [provider, setProvider] = useState("openai");
 	const [apiKey, setApiKey] = useState("");
@@ -63,93 +72,119 @@ export function SettingsPanel(props: { onSaved: () => void }) {
 		}
 	};
 
+	const themes = [
+		{ value: "system", label: "跟随系统" },
+		{ value: "light", label: "浅色" },
+		{ value: "dark", label: "深色" },
+	];
+	const providers = config?.providers.map((p) => ({
+		value: p.id,
+		label: `${p.id}${p.configured ? " ✓" : ""}`,
+	})) ?? [];
+	const modelOptions = [
+		{ value: "", label: "选择模型…" },
+		...models.map((id) => ({ value: id, label: id })),
+	];
+
+	const appearance = (
+		<>
+			<h2>外观</h2>
+			<Field>
+				<FieldLabel htmlFor="theme">主题</FieldLabel>
+				<Select id="theme" value={preference} items={themes} onValueChange={(value) => setPreference(parseTheme(value))}>
+					<SelectTrigger className="w-full max-w-60"><SelectValue /></SelectTrigger>
+					<SelectContent>
+						{themes.map((theme) => <SelectItem key={theme.value} value={theme.value}>{theme.label}</SelectItem>)}
+					</SelectContent>
+				</Select>
+			</Field>
+		</>
+	);
+
 	if (!config)
 		return (
 			<div className="settings">
+				{appearance}
 				{error ?? "加载中…"}
-				<button
+				<Button
 					onClick={() =>
 						void reload().catch((error) => setError(String(error)))
 					}
 				>
 					重新加载
-				</button>
+				</Button>
 			</div>
 		);
 
 	return (
 		<div className="settings">
 			{error && (
-				<div className="error" role="alert">
-					{error}
-				</div>
+				<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
 			)}
+			{appearance}
 			<h2>模型提供商</h2>
-			<label>
-				提供商
-				<select
+			<Field>
+				<FieldLabel htmlFor="provider">提供商</FieldLabel>
+				<Select
+					id="provider"
 					value={provider}
-					onChange={(e) => (
-						setProvider(e.target.value),
-						setModelId(""),
-						setApiKey("")
-					)}
+					items={providers}
+					onValueChange={(value) => {
+						if (value === null) return;
+						setProvider(value);
+						setModelId("");
+						setApiKey("");
+					}}
 				>
-					{config.providers.map((p) => (
-						<option key={p.id} value={p.id}>
-							{p.id}
-							{p.configured ? " ✓" : ""}
-						</option>
-					))}
-				</select>
-			</label>
-			<label>
-				API Key{current?.configured ? "（已配置，输入即替换）" : ""}
-				<input
+					<SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+					<SelectContent>
+						{providers.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+					</SelectContent>
+				</Select>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="provider-key">API Key{current?.configured ? "（已配置，输入即替换）" : ""}</FieldLabel>
+				<Input
+					id="provider-key"
 					type="password"
 					value={apiKey}
 					placeholder={current?.configured ? "••••••" : "sk-…"}
 					onChange={(e) => setApiKey(e.target.value)}
 				/>
-			</label>
+			</Field>
 
 			<h2>会话配置</h2>
-			<label>
-				模型
-				<select value={modelId} onChange={(e) => setModelId(e.target.value)}>
-					<option value="">选择模型…</option>
-					{models.map((id) => (
-						<option key={id} value={id}>
-							{id}
-						</option>
-					))}
-				</select>
-			</label>
-			<label>
-				思考级别
-				<select
-					value={thinkingLevel}
-					onChange={(e) => setThinkingLevel(e.target.value as ThinkingLevel)}
-				>
-					{THINKING_LEVELS.map((t) => (
-						<option key={t.value} value={t.value}>
-							{t.label}
-						</option>
-					))}
-				</select>
-			</label>
-			<label>
-				附加指令（追加到系统提示词末尾）
-				<textarea
+			<Field>
+				<FieldLabel htmlFor="model">模型</FieldLabel>
+				<Select id="model" value={modelId} items={modelOptions} onValueChange={(value) => setModelId(value ?? "")}>
+					<SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+					<SelectContent>
+						{modelOptions.map((model) => <SelectItem key={model.value} value={model.value}>{model.label}</SelectItem>)}
+					</SelectContent>
+				</Select>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="thinking-level">思考级别</FieldLabel>
+				<Select<ThinkingLevel> id="thinking-level" value={thinkingLevel} items={THINKING_LEVELS} onValueChange={(value) => { if (value !== null) setThinkingLevel(value); }}>
+					<SelectTrigger className="w-full max-w-60"><SelectValue /></SelectTrigger>
+					<SelectContent>
+						{THINKING_LEVELS.map((level) => <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>)}
+					</SelectContent>
+				</Select>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="instructions">附加指令（追加到系统提示词末尾）</FieldLabel>
+				<Textarea
+					id="instructions"
 					rows={4}
 					value={instructions}
 					placeholder="例：总是用中文回答；回答保持简短"
 					onChange={(e) => setInstructions(e.target.value)}
 				/>
-			</label>
-			<button onClick={save} disabled={saving}>
+			</Field>
+			<Button onClick={save} disabled={saving}>
 				{saving ? "保存中…" : "保存"}
-			</button>
+			</Button>
 
 			<CustomProvidersSection
 				providers={config.customProviders}

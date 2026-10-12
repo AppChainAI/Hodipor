@@ -15,7 +15,7 @@
     "dev:ui": "bun run --cwd apps/desktop/ui dev",
     "build:sidecar": "bun scripts/build-sidecar.ts",
     "check": "bun run --cwd apps/agent check && bun run --cwd apps/desktop/ui build",
-    "test": "bun run --cwd apps/agent test",
+    "test": "bun run --cwd apps/agent test && bun run --cwd apps/desktop/ui test",
     "build:desktop": "bun run --cwd apps/desktop build",
     "test:sidecar": "bun scripts/test-sidecar.ts",
     "test:native": "bun scripts/test-sidecar.ts --native"
