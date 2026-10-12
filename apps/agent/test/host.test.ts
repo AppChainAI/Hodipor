@@ -15,7 +15,7 @@ it("persists conversation configuration and deduplicates a submission after reop
 	let host = await createAgentHost(directory, { dev: true });
 	try {
 		expect((await host.root.agent(context)).sections.map((s) => s.key)).toEqual(
-			["research_role", "synthesize_role", "narrate_role", "render_role"],
+			["preamble", "rules"],
 		);
 		await host.root.configure({ instructions: "Persist this" }, context);
 		const input = {
