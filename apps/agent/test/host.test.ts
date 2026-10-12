@@ -215,3 +215,64 @@ it("bounds streaming history and exposes complete older messages through paginat
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+it("reset opens a fresh context: snapshot clears and the next run no longer sees old input", async () => {
+	const directory = await temporary();
+	const host = await createAgentHost(directory, { dev: true });
+	try {
+		const first = await host.root.submit(
+			{ type: "input", content: "旧上下文", requestId: "before-reset" },
+			context,
+		);
+		expect((await first.wait(context)).status).toBe("done");
+		const before = await host.root.viewState(context);
+		try {
+			const snapshot = projectChatView(before.value);
+			expect(snapshot.messages.length).toBeGreaterThan(0);
+			expect(snapshot.contextId).toBeUndefined();
+		} finally {
+			before.dispose();
+		}
+
+		const response = await handleHttp(
+			host,
+			new Request("http://localhost/api/reset", { method: "POST" }),
+		);
+		expect(response.status).toBe(200);
+
+		let contextId: string | undefined;
+		const cleared = await host.root.viewState(context);
+		try {
+			const snapshot = projectChatView(cleared.value);
+			expect(snapshot.messages).toEqual([]);
+			expect(snapshot.busy).toBe(false);
+			contextId = snapshot.contextId;
+			expect(contextId).toBeDefined();
+		} finally {
+			cleared.dispose();
+		}
+
+		// faux 回声复述它实际看到的最后一条 user 消息：隔离成立则只剩新输入
+		const second = await host.root.submit(
+			{ type: "input", content: "新上下文", requestId: "after-reset" },
+			context,
+		);
+		expect((await second.wait(context)).status).toBe("done");
+		const after = await host.root.viewState(context);
+		try {
+			const snapshot = projectChatView(after.value);
+			expect(snapshot.contextId).toBe(contextId);
+			expect(snapshot.messages.map((m) => m.text)).toEqual([
+				"新上下文",
+				expect.stringContaining("[faux] 收到：新上下文"),
+			]);
+			expect(
+				snapshot.messages.some((m) => m.text.includes("旧上下文")),
+			).toBe(false);
+		} finally {
+			after.dispose();
+		}
+	} finally {
+		await host.close();
+		await rm(directory, { recursive: true, force: true });
+	}
+});

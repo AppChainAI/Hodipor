@@ -91,6 +91,8 @@ export interface ChatSnapshot {
 	/** 最近一次失败原因（模型未配置、网络错误等） */
 	lastError?: string;
 	model?: ModelRef;
+	/** 当前上下文的标识：reset 后为 reset 条目的 id，变化即旧上下文的消息不再适用 */
+	contextId?: string;
 }
 
 export type ServerMessage = ChatSnapshot;

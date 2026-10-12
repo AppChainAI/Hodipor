@@ -44,6 +44,7 @@ export const putConfig = (update: ConfigUpdate) =>
 export const sendChat = (content: string, requestId: string) =>
 	request<ChatSubmitResult>("/api/chat", "POST", { content, requestId });
 export const abortChat = () => request<void>("/api/abort", "POST");
+export const resetChat = () => request<void>("/api/reset", "POST");
 export const upsertCustomProvider = (input: CustomProviderUpsert) =>
 	request<void>("/api/custom-providers", "PUT", input);
 export const deleteCustomProvider = (id: string) =>

@@ -112,6 +112,12 @@ async function route(host: AgentHost, req: Request): Promise<Response> {
 		return json({ ok: true });
 	}
 
+	// 新会话：同一 root 开新上下文（模型不再看到旧条目；条目保留在存储中）
+	if (req.method === "POST" && path === "/api/reset") {
+		await host.root.reset(undefined, context);
+		return json({ ok: true });
+	}
+
 	// 自定义 OpenAI 兼容供应商：upsert（apiKey 给了才更新）
 	if (req.method === "PUT" && path === "/api/custom-providers") {
 		const body = parse(CustomProviderUpsertSchema, await req.json());

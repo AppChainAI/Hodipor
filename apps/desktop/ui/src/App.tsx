@@ -3,6 +3,7 @@ import type { ChatSnapshot, ChatMessage } from "@siftory/protocol";
 import {
 	abortChat,
 	getHistory,
+	resetChat,
 	sendChat,
 	subscribeChat,
 	type ConnectionStatus,
@@ -19,7 +20,10 @@ export function App() {
 	const [historyBefore, setHistoryBefore] = useState<string>();
 	const [historyError, setHistoryError] = useState<string>();
 	const [loadingHistory, setLoadingHistory] = useState(false);
+	const [resetError, setResetError] = useState<string>();
 	const historyLoaded = useRef(false);
+	// 当前上下文的标识（快照 contextId）；reset 后变化，本地累积的消息随之作废
+	const contextId = useRef<string | undefined>(undefined);
 	const followOutput = useRef(true);
 	const historyScroll = useRef<{ top: number; height: number } | undefined>(
 		undefined,
@@ -40,6 +44,15 @@ export function App() {
 			subscribeChat(
 				(next) => {
 					setSnapshot(next);
+					if (next.contextId !== contextId.current) {
+						// 上下文切换（新会话）：本地状态整体替换，不做按 id 合并
+						contextId.current = next.contextId;
+						historyLoaded.current = false;
+						setHistoryError(undefined);
+						setMessages(next.messages);
+						setHistoryBefore(next.historyBefore);
+						return;
+					}
 					merge(next.messages);
 					if (!historyLoaded.current) setHistoryBefore(next.historyBefore);
 				},
@@ -54,8 +67,10 @@ export function App() {
 		if (!historyBefore || loadingHistory) return;
 		setLoadingHistory(true);
 		setHistoryError(undefined);
+		const contextAtLoad = contextId.current;
 		try {
 			const page = await getHistory(historyBefore);
+			if (contextId.current !== contextAtLoad) return; // 加载期间切换了会话，丢弃旧分页
 			if (mainRef.current)
 				historyScroll.current = {
 					top: mainRef.current.scrollTop,
@@ -99,6 +114,24 @@ export function App() {
 						? `${snapshot.model.provider}/${snapshot.model.modelId}`
 						: "未配置模型"}
 				</span>
+				<button
+					className="link"
+					onClick={() => {
+						setResetError(undefined);
+						void resetChat().catch((error: unknown) =>
+							setResetError(
+								error instanceof Error ? error.message : "操作失败，请重试",
+							),
+						);
+					}}
+				>
+					新会话
+				</button>
+				{resetError && (
+					<span className="error" role="alert">
+						{resetError}
+					</span>
+				)}
 				<button className="link" onClick={() => setShowSettings(!showSettings)}>
 					{showSettings ? "返回对话" : "设置"}
 				</button>

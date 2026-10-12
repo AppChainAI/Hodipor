@@ -43,6 +43,10 @@ export function projectChatView(
 		| undefined;
 	const agent = view.docs["pi.agent"] as { model?: ModelRef } | undefined;
 
+	// 活动转录以 head marker 开头：reset 后 entries[0] 是 pi.reset，其 id 标识新上下文。
+	// shortcut: reset 后再压缩时 entries[0] 变成 pi.compaction、contextId 回落 undefined；当前产品未启用压缩，启用后需换成显式 epoch。
+	const head = view.entries[0];
+
 	return {
 		type: "chat",
 		messages,
@@ -54,6 +58,7 @@ export function projectChatView(
 			(view.docs["pi.inbox"] as { items?: unknown[] } | undefined)?.items
 				?.length ?? 0,
 		model: agent?.model,
+		contextId: head?.kind === "pi.reset" ? String(head.id) : undefined,
 	};
 }
 
