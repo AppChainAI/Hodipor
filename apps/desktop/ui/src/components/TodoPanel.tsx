@@ -34,7 +34,8 @@ export function TodoPanel({ state }: { state: TodoState }) {
 							tabIndex={-1}
 							aria-label={`${t.subject}，${STATUS_TEXT[t.status]}`}
 						/>
-						<span className="todo-subject">
+						<span className="todo-id">#{t.id}</span>
+					<span className="todo-subject">
 							{t.status === "in_progress" && t.activeForm ? t.activeForm : t.subject}
 						</span>
 						{t.blockedBy?.length ? (
