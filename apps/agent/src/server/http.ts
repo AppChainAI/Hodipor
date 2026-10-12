@@ -115,13 +115,14 @@ async function route(host: AgentHost, req: Request): Promise<Response> {
 
 	// 新会话：同一 root 开新上下文（模型不再看到旧条目；条目保留在存储中）
 	if (req.method === "POST" && path === "/api/reset") {
-		await host.root.reset(undefined, context);
-		// 产品策略：新会话从空任务列表开始。durable 的 reset 不回退会话文档，由宿主清空
+		// 产品策略：新会话从空任务列表开始。必须先清空再 reset：app.todos 的 commit
+		// 不产生 WS 帧（视图只挂内建文档），reset 触发的推送才会带上空列表
 		await host.root.commit(async (tx) => {
 			const doc = await tx.doc(TodosDoc, host.root.id);
 			doc.tasks = [];
 			doc.nextId = 1;
 		}, context);
+		await host.root.reset(undefined, context);
 		return json({ ok: true });
 	}
 
