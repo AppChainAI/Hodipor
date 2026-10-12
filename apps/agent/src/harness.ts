@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
@@ -148,7 +148,8 @@ async function openHost(
 	const harness = await Harness.open(storage, {
 		models,
 		registry,
-		env: ({ cwd }) => new NodeExecutionEnv({ cwd: cwd ?? workspace }),
+		// 必须绝对路径：bash 工具会把 env.cwd 回传给 exec 再次解析，相对 cwd 会被拼接两次
+		env: ({ cwd }) => new NodeExecutionEnv({ cwd: resolve(cwd ?? workspace) }),
 	}, context);
 	const root = await harness.root(context);
 	// Configure defaults before resuming pending work.
