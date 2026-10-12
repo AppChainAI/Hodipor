@@ -44,6 +44,10 @@ body { margin: 0; font-size: 14px; line-height: 1.5; }
 .message.tool.error .bubble { border-left-color: var(--destructive); }
 .hint { color: var(--muted-foreground); font-size: 13px; }
 
+.markdown { white-space: normal; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+
 .composer-area { flex-shrink: 0; width: min(100%, 792px); margin: 0 auto; padding: var(--space-3) 0 var(--space-6); }
 
 .todo-panel { flex-shrink: 0; width: min(100%, 792px); margin: 0 auto; padding: 0 0 var(--space-2); }

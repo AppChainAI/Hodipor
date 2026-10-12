@@ -6,6 +6,9 @@
 @import "@fontsource/ibm-plex-sans/latin-600.css";
 @import "./theme.css";
 
+/* Streamdown 组件内的 Tailwind 工具类需要被扫描到 */
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
@@ -22,6 +25,8 @@
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
+	/* Streamdown 组件引用 bg-sidebar，本项目无独立 sidebar 色，映射到 muted */
+	--color-sidebar: var(--muted);
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);

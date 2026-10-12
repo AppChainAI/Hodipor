@@ -9,6 +9,7 @@ import {
 	type ConnectionStatus,
 } from "./api/client";
 import { Composer } from "./components/Composer";
+import { Markdown } from "./components/Markdown";
 import { TodoPanel } from "./components/TodoPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { Button } from "./components/ui/button";
@@ -188,17 +189,22 @@ export function App() {
 								</div>
 							) : (
 								<div key={m.id} className={`message ${m.role}`}>
-									<div className="bubble">{m.text}</div>
+									<div className="bubble">
+										{m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
+									</div>
 								</div>
 							),
 						)}
 						{busy && (
 							<div className="message assistant">
 								<div className="bubble pending">
-									{snapshot?.streamingText ||
-										(snapshot?.activeTools?.length
-											? `正在执行：${snapshot.activeTools.join("、")}…`
-											: "思考中…")}
+									{snapshot?.streamingText ? (
+										<Markdown text={snapshot.streamingText} streaming />
+									) : snapshot?.activeTools?.length ? (
+										`正在执行：${snapshot.activeTools.join("、")}…`
+									) : (
+										"思考中…"
+									)}
 								</div>
 							</div>
 						)}
