@@ -70,12 +70,18 @@ export interface ChatSubmitResult {
 	submissionId: string;
 }
 
-/** UI 侧消息（从 pi-durable entries 投影） */
+/** UI 侧消息（从 pi-durable entries 投影）；role "tool" 是工具结果行 */
 export interface ChatMessage {
 	id: string;
-	role: "user" | "assistant";
+	role: "user" | "assistant" | "tool";
 	text: string;
+	/** role 为 "tool" 时的工具名 */
+	toolName?: string;
+	/** role 为 "tool" 且执行失败 */
+	isError?: boolean;
 }
+
+import type { TodoState } from "./todos";
 
 /** WS 推送的会话快照（每次 commit 一帧） */
 export interface ChatSnapshot {
@@ -93,6 +99,10 @@ export interface ChatSnapshot {
 	model?: ModelRef;
 	/** 当前上下文的标识：reset 后为 reset 条目的 id，变化即旧上下文的消息不再适用 */
 	contextId?: string;
+	/** 会话任务列表（app.todos 文档投影）；模型从未调用 todo 工具时不存在 */
+	todos?: TodoState;
+	/** 本轮正在执行的工具名（未完成的调用）；空闲时不存在 */
+	activeTools?: string[];
 }
 
 export type ServerMessage = ChatSnapshot;

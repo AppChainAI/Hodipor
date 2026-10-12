@@ -1,5 +1,6 @@
 import type { EntryId } from "@earendil-works/pi-durable";
 import { projectMessages } from "./projection";
+import { TodosDoc } from "../extensions/todo/index";
 import {
 	ChatSchema,
 	ConfigSchema,
@@ -115,6 +116,12 @@ async function route(host: AgentHost, req: Request): Promise<Response> {
 	// 新会话：同一 root 开新上下文（模型不再看到旧条目；条目保留在存储中）
 	if (req.method === "POST" && path === "/api/reset") {
 		await host.root.reset(undefined, context);
+		// 产品策略：新会话从空任务列表开始。durable 的 reset 不回退会话文档，由宿主清空
+		await host.root.commit(async (tx) => {
+			const doc = await tx.doc(TodosDoc, host.root.id);
+			doc.tasks = [];
+			doc.nextId = 1;
+		}, context);
 		return json({ ok: true });
 	}
 

@@ -6,6 +6,7 @@ import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createAgentHost } from "../src/harness";
 import { FileCredentialStore } from "../src/config";
 import { handleHttp } from "../src/server/http";
+import { TodosDoc } from "../src/extensions/todo/index";
 import { projectChatView } from "../src/server/projection";
 import { allowedOrigin, authorized, cors } from "../src/server/access";
 
@@ -15,7 +16,11 @@ it("persists conversation configuration and deduplicates a submission after reop
 	let host = await createAgentHost(directory, { dev: true });
 	try {
 		expect((await host.root.agent(context)).sections.map((s) => s.key)).toEqual(
-			["preamble", "rules"],
+			["preamble", "rules", "todo_guidance"],
+		);
+		// CodingTools 已接入：文件与命令工具对模型可用
+		expect((await host.root.agent(context)).tools.map((t) => t.name).sort()).toEqual(
+			["bash", "edit", "read", "todo", "write"],
 		);
 		await host.root.configure({ instructions: "Persist this" }, context);
 		const input = {
@@ -238,6 +243,21 @@ it("reset opens a fresh context: snapshot clears and the next run no longer sees
 			new Request("http://localhost/api/reset", { method: "POST" }),
 		);
 		expect(response.status).toBe(200);
+
+		// 新会话清空任务列表（宿主策略，durable 的 reset 本身不回退文档）
+		await host.root.commit(async (tx) => {
+			(await tx.doc(TodosDoc, host.root.id)).tasks.push({
+				id: 1,
+				subject: "遗留任务",
+				status: "pending",
+			});
+		}, context);
+		const again = await handleHttp(
+			host,
+			new Request("http://localhost/api/reset", { method: "POST" }),
+		);
+		expect(again.status).toBe(200);
+		expect((await host.harness.snapshot(TodosDoc, host.root.id, context))?.tasks).toEqual([]);
 
 		let contextId: string | undefined;
 		const cleared = await host.root.viewState(context);

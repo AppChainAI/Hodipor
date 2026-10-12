@@ -9,6 +9,7 @@ import {
 	type ConnectionStatus,
 } from "./api/client";
 import { Composer } from "./components/Composer";
+import { TodoPanel } from "./components/TodoPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { Button } from "./components/ui/button";
 import { Alert, AlertDescription } from "./components/ui/alert";
@@ -177,15 +178,27 @@ export function App() {
 						{!!snapshot?.queued && (
 							<div className="hint">排队消息：{snapshot.queued}</div>
 						)}
-						{messages.map((m) => (
-							<div key={m.id} className={`message ${m.role}`}>
-								<div className="bubble">{m.text}</div>
-							</div>
-						))}
+						{messages.map((m) =>
+							m.role === "tool" ? (
+								<div key={m.id} className={`message tool${m.isError ? " error" : ""}`}>
+									<div className="bubble">
+										<span className="tool-name">⚙ {m.toolName}</span>
+										{m.text && <span className="tool-text">{m.text}</span>}
+									</div>
+								</div>
+							) : (
+								<div key={m.id} className={`message ${m.role}`}>
+									<div className="bubble">{m.text}</div>
+								</div>
+							),
+						)}
 						{busy && (
 							<div className="message assistant">
 								<div className="bubble pending">
-									{snapshot?.streamingText || "思考中…"}
+									{snapshot?.streamingText ||
+										(snapshot?.activeTools?.length
+											? `正在执行：${snapshot.activeTools.join("、")}…`
+											: "思考中…")}
 								</div>
 							</div>
 						)}
@@ -200,6 +213,7 @@ export function App() {
 						)}
 						<div ref={bottomRef} />
 					</main>
+					{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
 					<Composer
 						connected={connection === "connected"}
 						busy={busy}

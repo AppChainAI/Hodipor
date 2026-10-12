@@ -38,9 +38,22 @@ body { margin: 0; font-size: 14px; line-height: 1.5; }
 .message.user .bubble { max-width: 85%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-panel); background: var(--user-surface); }
 .message.assistant .bubble { padding: var(--space-1) 0; }
 .bubble.pending { color: var(--muted-foreground); }
+.message.tool .bubble { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-left: 2px solid var(--border); font-size: 13px; color: var(--muted-foreground); max-width: 100%; }
+.message.tool .tool-name { font-weight: 600; flex-shrink: 0; }
+.message.tool .tool-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.message.tool.error .bubble { border-left-color: var(--destructive); }
 .hint { color: var(--muted-foreground); font-size: 13px; }
 
 .composer-area { flex-shrink: 0; width: min(100%, 792px); margin: 0 auto; padding: var(--space-3) 0 var(--space-6); }
+
+.todo-panel { flex-shrink: 0; width: min(100%, 792px); margin: 0 auto; padding: 0 0 var(--space-2); }
+.todo-heading { font-size: 12px; color: var(--muted-foreground); margin-bottom: var(--space-1); }
+.todo-list { list-style: none; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); display: flex; flex-direction: column; gap: var(--space-1); max-height: 132px; overflow-y: auto; }
+.todo-item { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; min-width: 0; padding: var(--space-1) 0; }
+.todo-subject { min-width: 0; overflow-wrap: anywhere; transition: color 0.2s ease; }
+.todo-item.pending .todo-subject { color: var(--muted-foreground); }
+.todo-item.completed .todo-subject { color: var(--muted-foreground); text-decoration: line-through; }
+.todo-blocked { flex-shrink: 0; margin-left: auto; font-size: 11px; color: var(--muted-foreground); }
 .composer-area > .hint, .composer-area > [data-slot="alert"] { margin-bottom: var(--space-2); }
 .composer { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--input); border-radius: var(--radius-panel); background: var(--card); box-shadow: var(--shadow); }
 .composer:has(.composer-input:focus-visible) { border-color: var(--ring); box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow); }

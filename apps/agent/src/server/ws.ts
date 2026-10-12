@@ -3,6 +3,7 @@ import type { ServerWebSocket } from "bun";
 import type { AgentHost } from "../harness";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { projectChatView } from "./projection";
+import { TodosDoc } from "../extensions/todo/index";
 
 const context = BACKGROUND_CONTEXT;
 type Connection = {
@@ -39,7 +40,9 @@ export function createWsHandler(host: AgentHost) {
 						latest.entry === user?.id
 							? latest.reason
 							: undefined;
-					send(ws, JSON.stringify(projectChatView(value, error)));
+					// ConversationView.docs 只挂载 pi.* 内建文档，自定义文档单独读
+				const todos = await host.harness.snapshot(TodosDoc, host.root.id, context);
+				send(ws, JSON.stringify(projectChatView(value, error, todos ?? undefined)));
 				};
 				await publish(watch.value);
 				if (!ws.data.closed) watch.start(publish);

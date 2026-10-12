@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
 	createModels,
@@ -23,6 +24,7 @@ import {
 	type Conversation,
 } from "@earendil-works/pi-durable";
 import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
+import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { AgentConfigView, CustomProvider } from "@siftory/protocol";
 import { authFile, FileCredentialStore } from "./config";
 import {
@@ -140,7 +142,14 @@ async function openHost(
 	const storage = await SqliteStorage.open(
 		openBunSqlite(join(dataDir, "siftory.sqlite")),
 	);
-	const harness = await Harness.open(storage, { models, registry }, context);
+	// 文件/命令工具的工作目录：会话未设 cwd 时用数据目录下的 workspace/
+	const workspace = join(dataDir, "workspace");
+	await mkdir(workspace, { recursive: true });
+	const harness = await Harness.open(storage, {
+		models,
+		registry,
+		env: ({ cwd }) => new NodeExecutionEnv({ cwd: cwd ?? workspace }),
+	}, context);
 	const root = await harness.root(context);
 	// Configure defaults before resuming pending work.
 
