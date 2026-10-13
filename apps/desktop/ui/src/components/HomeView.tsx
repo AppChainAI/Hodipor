@@ -43,7 +43,7 @@ function ArtifactHero({ artifact }: { artifact: ArtifactView }) {
 	);
 }
 
-function CompactRow({ artifact }: { artifact: ArtifactView }) {
+export function CompactRow({ artifact }: { artifact: ArtifactView }) {
 	return (
 		<span className="artifact-row">
 			<span className="artifact-tag">{typeLabel(artifact.type)}</span>

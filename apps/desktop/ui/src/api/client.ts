@@ -53,6 +53,20 @@ export const resetChat = () => request<void>("/api/reset", "POST");
 export const createTopic = (content: string, requestId: string) =>
 	request<TopicCreated>("/api/topics", "POST", { content, requestId });
 export const getLibrary = () => request<LibraryView>("/api/library");
+/** 取产物文件原文（markdown 预览用）；音视频落地时改返回 blob URL 喂 <audio>/<video> */
+export const getArtifactText = async (topicId: string, artifactId: number) => {
+	const agent = await connection();
+	const response = await fetch(
+		`${agent ? `http://127.0.0.1:${agent.port}` : ""}/api/topics/${encodeURIComponent(topicId)}/artifacts/${artifactId}/file`,
+		{
+			headers: {
+				...(agent?.token ? { authorization: `Bearer ${agent.token}` } : {}),
+			},
+		},
+	);
+	if (!response.ok) throw new Error(`加载失败（${response.status}）`);
+	return response.text();
+};
 export const upsertCustomProvider = (input: CustomProviderUpsert) =>
 	request<void>("/api/custom-providers", "PUT", input);
 export const deleteCustomProvider = (id: string) =>

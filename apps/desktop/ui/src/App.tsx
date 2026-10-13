@@ -9,6 +9,7 @@ import {
 	subscribeChat,
 	type ConnectionStatus,
 } from "./api/client";
+import { ArtifactShelf } from "./components/ArtifactShelf";
 import { Composer } from "./components/Composer";
 import { HomeView } from "./components/HomeView";
 import { Markdown } from "./components/Markdown";
@@ -157,9 +158,6 @@ export function App() {
 	const busy = snapshot?.busy ?? false;
 	const activeModel =
 		(view.name === "topic" ? snapshot?.model : undefined) ?? config?.agent.model;
-	const modelLabel = activeModel
-		? `${activeModel.provider}/${activeModel.modelId}`
-		: "未配置模型";
 	const connectionLabel =
 		connection === "connected"
 			? "已连接"
@@ -215,13 +213,10 @@ export function App() {
 						Siftory
 					</h1>
 				)}
-				<span className="status-chip" title={`${modelLabel} · ${connectionLabel}`}>
+				<span className="status-chip" title={connectionLabel}>
 					{view.name === "topic" && (
 						<span className="status-dot" data-state={connection} />
 					)}
-					<span className="status-model">
-						{activeModel ? activeModel.modelId : "未配置模型"}
-					</span>
 					{!!snapshot?.queued && view.name === "topic" && (
 						<span className="status-queued">排队 {snapshot.queued}</span>
 					)}
@@ -239,8 +234,9 @@ export function App() {
 					onOpenTopic={(id, title) => setView({ name: "topic", id, title })}
 				/>
 			) : (
-				<>
-					<main
+				<div className="topic-body">
+					<div className="topic-main">
+						<main
 						className="conversation"
 						ref={mainRef}
 						onScroll={(event) => {
@@ -336,14 +332,16 @@ export function App() {
 						<div ref={bottomRef} />
 					</main>
 					{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
-					<Composer
-						connected={connection === "connected"}
-						busy={busy}
-						modelSelect={modelSelect}
-						onSend={(text, requestId) => sendChat(text, requestId, topicId)}
-						onStop={() => abortChat(topicId)}
-					/>
-				</>
+						<Composer
+							connected={connection === "connected"}
+							busy={busy}
+							modelSelect={modelSelect}
+							onSend={(text, requestId) => sendChat(text, requestId, topicId)}
+							onStop={() => abortChat(topicId)}
+						/>
+					</div>
+					<ArtifactShelf topicId={view.id} busy={busy} />
+				</div>
 			)}
 		</div>
 	);
