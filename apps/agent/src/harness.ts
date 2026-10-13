@@ -244,15 +244,6 @@ async function openHost(
 	// 扩展安装需要 appdb 与选题目录就位；agent 在每次运行时对注册表快照惰性解析，此处安装即对所有会话生效
 	installAll(registry, { artifacts: { registerArtifact } });
 
-	const slugify = (title: string) => {
-		const slug = title
-			.replace(/[\\/:*?"<>|\s]+/g, "-")
-			.replace(/-{2,}/g, "-")
-			.replace(/^-|-$/g, "")
-			.slice(0, 12);
-		return slug || "topic";
-	};
-
 	return {
 		harness,
 		root,
@@ -352,9 +343,9 @@ async function openHost(
 				context,
 			);
 			const id = String(conversation.id);
-			const id8 = id.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
-			let dir = `topics/${slugify(title)}-${id8}`;
-			if (appdb.getTopicByDir(dir)) dir = `topics/${slugify(title)}-${id}`;
+			// 目录名用会话 id：slug 化的标题在真实输入下不产生可读性（祈使句/URL），
+			// 还会引入 CJK 归一化（NFD/NFC）路径比较风险；可读性由 DB 标题与 UI 承担
+			const dir = `topics/${id}`;
 			await mkdir(join(workspace, dir), { recursive: true });
 			await conversation.configure({ cwd: join(workspace, dir) }, context);
 			const topic: TopicRow = { id, title, dir, created_at: Date.now() };

@@ -15,7 +15,7 @@ it("creates a topic with its own directory and cwd, inheriting root's model", as
 	try {
 		const topic = await host.createTopic("研究固态电池的最新进展，做成一期科普视频");
 		expect(topic.title).toBe("研究固态电池的最新进展，做成一期科普视频");
-		expect(topic.dir.startsWith("topics/")).toBe(true);
+		expect(topic.dir).toBe(`topics/${topic.id}`);
 		// cwd 绑定选题目录；模型配置从 root 复制（dev 兜底 faux）
 		const conversation = await host.conversation(topic.id);
 		const agent = await conversation!.agent(context);

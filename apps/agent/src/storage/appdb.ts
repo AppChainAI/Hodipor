@@ -29,7 +29,6 @@ export interface ArtifactRow {
 export interface AppDb {
 	insertTopic(row: TopicRow): void;
 	getTopic(id: string): TopicRow | undefined;
-	getTopicByDir(dir: string): TopicRow | undefined;
 	listTopics(): TopicRow[];
 	insertArtifact(
 		row: Omit<ArtifactRow, "id" | "created_at"> & { created_at?: number },
@@ -71,10 +70,6 @@ CREATE INDEX IF NOT EXISTS app_artifacts_topic ON app_artifacts(topic_id);`);
 			(db
 				.query("SELECT * FROM app_topics WHERE id = ?")
 				.get(id) as TopicRow | null) ?? undefined,
-		getTopicByDir: (dir) =>
-			(db
-				.query("SELECT * FROM app_topics WHERE dir = ?")
-				.get(dir) as TopicRow | null) ?? undefined,
 		listTopics: () =>
 			db
 				.query("SELECT * FROM app_topics ORDER BY created_at DESC")

@@ -175,7 +175,7 @@
   auth.json  providers.json  agent.lock.sqlite
   workspace/                  # Agent 的文件世界（唯一文件树根）
     topics/
-      固态电池解读-a1b2c3d4/    # ← 会话 cwd 设到这里
+      42/                       # ← 目录名 = 会话 id；会话 cwd 设到这里
         artifacts/            # 登记的最终产物：产物库 UI 经索引只读这里
         sources/              # 原始资料（抓取的网页、RSS 条目）
         frames/               # 视频中间帧等大体积中间产物
