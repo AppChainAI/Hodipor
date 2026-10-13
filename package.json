@@ -1,27 +1,28 @@
 {
   "name": "siftory",
+  "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/agent",
-    "apps/desktop",
-    "apps/desktop/ui",
-    "packages/protocol"
-  ],
+  "description": "A general-purpose, extensible terminal agent powered by Pi",
+  "type": "module",
+  "bin": {
+    "siftory": "src/cli.mjs"
+  },
   "scripts": {
-    "icons": "bun scripts/generate-icons.ts",
-    "dev": "bun scripts/dev.ts",
-    "dev:desktop": "bun scripts/dev-desktop.ts",
-    "dev:agent": "bun run --cwd apps/agent dev",
-    "dev:ui": "bun run --cwd apps/desktop/ui dev",
-    "build:sidecar": "bun scripts/build-sidecar.ts",
-    "check": "bun run --cwd apps/agent check && bun run --cwd apps/desktop/ui build",
-    "test": "bun run --cwd apps/agent test && bun run --cwd apps/desktop/ui test",
-    "build:desktop": "bun run --cwd apps/desktop build",
-    "test:sidecar": "bun scripts/test-sidecar.ts",
-    "test:native": "bun scripts/test-sidecar.ts --native"
+    "start": "node src/cli.mjs",
+    "dev": "node src/cli.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "@earendil-works/pi-tui": "1.2.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.2",
-    "sharp": "^0.35.5"
+    "@earendil-works/pi-ai": "1.2.0",
+    "@types/node": "^22.19.0",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,10 +1,4 @@
 node_modules/
-dist/
 .data/
-*.tmp
-target/
-apps/desktop/bin/
 /output/
-/apps/desktop/src-tauri/icons/macos-source.png
-/apps/desktop/src-tauri/icons/windows-source.png
 .DS_Store

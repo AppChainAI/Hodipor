@@ -13,16 +13,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
-      - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check
       - run: bun run test
-      - run: bun run build:sidecar --current
-      - run: bun run test:sidecar
-      - run: cargo check --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
-      - run: cargo check --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --features managed-sidecar
-      - run: bun run test:native
