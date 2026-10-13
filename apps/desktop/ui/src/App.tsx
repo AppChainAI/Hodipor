@@ -1,23 +1,47 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ChatSnapshot, ChatMessage } from "@siftory/protocol";
+import type { ChatSnapshot, ChatMessage, ConfigView } from "@siftory/protocol";
 import {
 	abortChat,
+	getConfig,
 	getHistory,
-	resetChat,
+	putConfig,
 	sendChat,
 	subscribeChat,
 	type ConnectionStatus,
 } from "./api/client";
 import { Composer } from "./components/Composer";
-import { EmptyState } from "./components/EmptyState";
+import { HomeView } from "./components/HomeView";
 import { Markdown } from "./components/Markdown";
 import { TodoPanel } from "./components/TodoPanel";
-import { ToolMessage } from "./components/ToolMessage";
+import { ToolGroup, ToolMessage } from "./components/ToolMessage";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { Button } from "./components/ui/button";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { ChevronLeft } from "lucide-react";
+
+type View = { name: "home" } | { name: "topic"; id: string; title: string };
+
+/** 消息渲染块：连续工具消息折叠为一组（Run 时间线分组的最小形态） */
+type Block =
+	| { kind: "message"; message: ChatMessage }
+	| { kind: "tools"; items: ChatMessage[] };
+
+function groupBlocks(messages: ChatMessage[]): Block[] {
+	const blocks: Block[] = [];
+	for (const message of messages) {
+		if (message.role === "tool") {
+			const last = blocks[blocks.length - 1];
+			if (last?.kind === "tools") last.items.push(message);
+			else blocks.push({ kind: "tools", items: [message] });
+		} else {
+			blocks.push({ kind: "message", message });
+		}
+	}
+	return blocks;
+}
 
 export function App() {
+	const [view, setView] = useState<View>({ name: "home" });
 	const [snapshot, setSnapshot] = useState<ChatSnapshot>();
 	const [connectionError, setConnectionError] = useState<string>();
 	const [connection, setConnection] = useState<ConnectionStatus>("connecting");
@@ -26,8 +50,7 @@ export function App() {
 	const [historyBefore, setHistoryBefore] = useState<string>();
 	const [historyError, setHistoryError] = useState<string>();
 	const [loadingHistory, setLoadingHistory] = useState(false);
-	const [resetError, setResetError] = useState<string>();
-	const [composerSeed, setComposerSeed] = useState<{ text: string; id: number }>();
+	const [config, setConfig] = useState<ConfigView>();
 	const historyLoaded = useRef(false);
 	// 当前上下文的标识（快照 contextId）；reset 后变化，本地累积的消息随之作废
 	const contextId = useRef<string | undefined>(undefined);
@@ -38,6 +61,20 @@ export function App() {
 	const mainRef = useRef<HTMLElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
+	const topicId = view.name === "topic" ? view.id : undefined;
+
+	const loadConfig = () =>
+		getConfig()
+			.then(setConfig)
+			.catch(() => {});
+	useEffect(() => {
+		void loadConfig();
+	}, []);
+	// 设置关闭后刷新：模型选择可能改了
+	useEffect(() => {
+		if (!showSettings) loadConfig();
+	}, [showSettings]);
+
 	const merge = (incoming: ChatMessage[]) =>
 		setMessages((previous) =>
 			[
@@ -46,37 +83,45 @@ export function App() {
 				).values(),
 			].sort((a, b) => Number(a.id) - Number(b.id)),
 		);
-	useEffect(
-		() =>
-			subscribeChat(
-				(next) => {
-					setSnapshot(next);
-					if (next.contextId !== contextId.current) {
-						// 上下文切换（新会话）：本地状态整体替换，不做按 id 合并
-						contextId.current = next.contextId;
-						historyLoaded.current = false;
-						setHistoryError(undefined);
-						setMessages(next.messages);
-						setHistoryBefore(next.historyBefore);
-						return;
-					}
-					merge(next.messages);
-					if (!historyLoaded.current) setHistoryBefore(next.historyBefore);
-				},
-				(status, error) => {
-					setConnection(status);
-					setConnectionError(error);
-				},
-			),
-		[],
-	);
+	useEffect(() => {
+		if (!topicId) return;
+		// 切换选题：清空上一会话的本地状态再订阅
+		setSnapshot(undefined);
+		setMessages([]);
+		setHistoryBefore(undefined);
+		setHistoryError(undefined);
+		contextId.current = undefined;
+		historyLoaded.current = false;
+		setConnection("connecting");
+		return subscribeChat(
+			(next) => {
+				setSnapshot(next);
+				if (next.contextId !== contextId.current) {
+					// 上下文切换（新会话）：本地状态整体替换，不做按 id 合并
+					contextId.current = next.contextId;
+					historyLoaded.current = false;
+					setHistoryError(undefined);
+					setMessages(next.messages);
+					setHistoryBefore(next.historyBefore);
+					return;
+				}
+				merge(next.messages);
+				if (!historyLoaded.current) setHistoryBefore(next.historyBefore);
+			},
+			(status, error) => {
+				setConnection(status);
+				setConnectionError(error);
+			},
+			topicId,
+		);
+	}, [topicId]);
 	const loadHistory = async () => {
-		if (!historyBefore || loadingHistory) return;
+		if (!historyBefore || loadingHistory || !topicId) return;
 		setLoadingHistory(true);
 		setHistoryError(undefined);
 		const contextAtLoad = contextId.current;
 		try {
-			const page = await getHistory(historyBefore);
+			const page = await getHistory(historyBefore, topicId);
 			if (contextId.current !== contextAtLoad) return; // 加载期间切换了会话，丢弃旧分页
 			if (mainRef.current)
 				historyScroll.current = {
@@ -110,8 +155,10 @@ export function App() {
 	}, [snapshot]);
 
 	const busy = snapshot?.busy ?? false;
-	const modelLabel = snapshot?.model
-		? `${snapshot.model.provider}/${snapshot.model.modelId}`
+	const activeModel =
+		(view.name === "topic" ? snapshot?.model : undefined) ?? config?.agent.model;
+	const modelLabel = activeModel
+		? `${activeModel.provider}/${activeModel.modelId}`
 		: "未配置模型";
 	const connectionLabel =
 		connection === "connected"
@@ -120,38 +167,65 @@ export function App() {
 				? "连接中"
 				: "已断开";
 
+	const modelOptions = Object.entries(config?.models ?? {}).flatMap(
+		([provider, ids]) =>
+			ids.map((modelId) => ({
+				value: `${provider}/${modelId}`,
+				label: modelId,
+			})),
+	);
+	const modelSelect =
+		modelOptions.length > 0
+			? {
+					value: activeModel
+						? `${activeModel.provider}/${activeModel.modelId}`
+						: "",
+					options: modelOptions,
+					onChange: (value: string) => {
+						const [provider, ...rest] = value.split("/");
+						const modelId = rest.join("/");
+						void putConfig({
+							conversationId: topicId,
+							agent: { model: { provider, modelId } },
+						})
+							.then(loadConfig)
+							.catch(() => {});
+					},
+				}
+			: undefined;
+
 	return (
 		<div className="app">
 			<header className="app-header">
-				<h1 className="brand">
-					<img className="brand-logo" src="/logo.png" alt="" width={32} height={32} />
-					Siftory
-				</h1>
+				{view.name === "topic" ? (
+					<>
+						<Button
+							variant="ghost"
+							onClick={() => setView({ name: "home" })}
+							aria-label="返回产物库"
+						>
+							<ChevronLeft aria-hidden="true" />
+							产物库
+						</Button>
+						<span className="topic-title">{view.title}</span>
+					</>
+				) : (
+					<h1 className="brand">
+						<img className="brand-logo" src="/logo.png" alt="" width={32} height={32} />
+						Siftory
+					</h1>
+				)}
 				<span className="status-chip" title={`${modelLabel} · ${connectionLabel}`}>
-					<span className="status-dot" data-state={connection} />
+					{view.name === "topic" && (
+						<span className="status-dot" data-state={connection} />
+					)}
 					<span className="status-model">
-						{snapshot?.model ? snapshot.model.modelId : "未配置模型"}
+						{activeModel ? activeModel.modelId : "未配置模型"}
 					</span>
-					{!!snapshot?.queued && (
+					{!!snapshot?.queued && view.name === "topic" && (
 						<span className="status-queued">排队 {snapshot.queued}</span>
 					)}
 				</span>
-				<Button
-					variant="ghost"
-					onClick={() => {
-						setResetError(undefined);
-						void resetChat().catch((error: unknown) =>
-							setResetError(
-								error instanceof Error ? error.message : "操作失败，请重试",
-							),
-						);
-					}}
-				>
-					新会话
-				</Button>
-				{resetError && (
-					<Alert variant="destructive" className="w-auto"><AlertDescription>{resetError}</AlertDescription></Alert>
-				)}
 				<Button variant="ghost" onClick={() => setShowSettings(true)}>
 					设置
 				</Button>
@@ -159,8 +233,14 @@ export function App() {
 
 			<SettingsPanel open={showSettings} onOpenChange={setShowSettings} />
 
-			<>
-				<main
+			{view.name === "home" ? (
+				<HomeView
+					modelSelect={modelSelect}
+					onOpenTopic={(id, title) => setView({ name: "topic", id, title })}
+				/>
+			) : (
+				<>
+					<main
 						className="conversation"
 						ref={mainRef}
 						onScroll={(event) => {
@@ -172,9 +252,6 @@ export function App() {
 								100;
 						}}
 					>
-						{messages.length === 0 && !busy && !historyBefore && (
-							<EmptyState onPick={(text) => setComposerSeed({ text, id: Date.now() })} />
-						)}
 						{historyBefore && (
 							<Button
 								variant="ghost"
@@ -194,17 +271,42 @@ export function App() {
 									: (connectionError ?? "连接中断，正在重试…")}
 							</div>
 						)}
-						{messages.map((m) =>
-							m.role === "tool" ? (
-								<div key={m.id} className="message tool">
+						{groupBlocks(messages).map((block, index) =>
+							block.kind === "tools" ? (
+								<div key={`tools-${block.items[0].id}`} className="message tool">
 									<div className="bubble">
-										<ToolMessage toolName={m.toolName} text={m.text} isError={m.isError} />
+										{block.items.length >= 3 ? (
+											<ToolGroup
+												items={block.items}
+												renderItem={(m) => (
+													<ToolMessage
+														key={m.id}
+														toolName={m.toolName}
+														text={m.text}
+														isError={m.isError}
+													/>
+												)}
+											/>
+										) : (
+											block.items.map((m) => (
+												<ToolMessage
+													key={m.id}
+													toolName={m.toolName}
+													text={m.text}
+													isError={m.isError}
+												/>
+											))
+										)}
 									</div>
 								</div>
 							) : (
-								<div key={m.id} className={`message ${m.role}`}>
+								<div key={block.message.id} className={`message ${block.message.role}`}>
 									<div className="bubble">
-										{m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
+										{block.message.role === "assistant" ? (
+											<Markdown text={block.message.text} />
+										) : (
+											block.message.text
+										)}
 									</div>
 								</div>
 							),
@@ -231,17 +333,18 @@ export function App() {
 								}[snapshot.lastError] ?? snapshot.lastError}
 							</AlertDescription></Alert>
 						)}
-					<div ref={bottomRef} />
-				</main>
-				{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
-				<Composer
-					connected={connection === "connected"}
-					busy={busy}
-					seed={composerSeed}
-					onSend={sendChat}
-					onStop={abortChat}
-				/>
-			</>
+						<div ref={bottomRef} />
+					</main>
+					{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
+					<Composer
+						connected={connection === "connected"}
+						busy={busy}
+						modelSelect={modelSelect}
+						onSend={(text, requestId) => sendChat(text, requestId, topicId)}
+						onStop={() => abortChat(topicId)}
+					/>
+				</>
+			)}
 		</div>
 	);
 }

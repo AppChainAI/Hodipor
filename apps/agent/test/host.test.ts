@@ -16,11 +16,11 @@ it("persists conversation configuration and deduplicates a submission after reop
 	let host = await createAgentHost(directory, { dev: true });
 	try {
 		expect((await host.root.agent(context)).sections.map((s) => s.key)).toEqual(
-			["preamble", "rules", "todo_guidance"],
+			["preamble", "rules", "todo_guidance", "artifact-protocol"],
 		);
 		// CodingTools 已接入：文件与命令工具对模型可用
 		expect((await host.root.agent(context)).tools.map((t) => t.name).sort()).toEqual(
-			["bash", "edit", "read", "todo", "write"],
+			["bash", "edit", "read", "register_artifact", "todo", "write"],
 		);
 		await host.root.configure({ instructions: "Persist this" }, context);
 		const input = {

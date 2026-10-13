@@ -8,6 +8,7 @@ import { TodosDoc } from "../extensions/todo/index";
 const context = BACKGROUND_CONTEXT;
 type Connection = {
 	closed: boolean;
+	conversationId?: string;
 	stop?: () => Promise<unknown>;
 	pending?: string;
 };
@@ -25,14 +26,22 @@ export function createWsHandler(host: AgentHost) {
 	return {
 		async open(ws: ServerWebSocket<Connection>) {
 			try {
-				const watch = await host.root.watch(context);
+				const conversation = ws.data.conversationId
+					? await host.conversation(ws.data.conversationId)
+					: host.root;
+				if (!conversation) {
+					ws.close(1008, "Unknown conversation");
+					return;
+				}
+				const conversationId = conversation.id;
+				const watch = await conversation.watch(context);
 				ws.data.stop = () => watch.stop();
 				if (ws.data.closed) {
 					await watch.stop();
 					return;
 				}
 				const publish = async (value: ConversationView) => {
-					const latest = await host.latestSubmission();
+					const latest = await host.latestSubmission(conversationId);
 					const user = value.entries.findLast((e) => e.kind === "pi.user");
 					const error =
 						latest?.status === "unanswered" &&
@@ -41,8 +50,8 @@ export function createWsHandler(host: AgentHost) {
 							? latest.reason
 							: undefined;
 					// ConversationView.docs 只挂载 pi.* 内建文档，自定义文档单独读
-				const todos = await host.harness.snapshot(TodosDoc, host.root.id, context);
-				send(ws, JSON.stringify(projectChatView(value, error, todos ?? undefined)));
+					const todos = await host.harness.snapshot(TodosDoc, conversationId, context);
+					send(ws, JSON.stringify(projectChatView(value, error, todos ?? undefined)));
 				};
 				await publish(watch.value);
 				if (!ws.data.closed) watch.start(publish);

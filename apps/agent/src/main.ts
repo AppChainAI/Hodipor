@@ -40,7 +40,9 @@ const server = Bun.serve({
 			return respond(new Response("unauthorized", { status: 401 }));
 		const path = new URL(req.url).pathname;
 		if (path === "/ws") {
-			return server.upgrade(req, { data: { closed: false } })
+			const conversationId =
+				new URL(req.url).searchParams.get("conversation") ?? undefined;
+			return server.upgrade(req, { data: { closed: false, conversationId } })
 				? undefined
 				: respond(new Response("upgrade required", { status: 426 }));
 		}

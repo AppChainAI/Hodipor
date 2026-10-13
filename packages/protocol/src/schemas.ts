@@ -11,6 +11,8 @@ export const ChatSchema = Type.Object(
 	{
 		content: Type.String({ minLength: 1, maxLength: 100_000 }),
 		requestId: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+		/** 目标会话（选题）id；缺省为 root 会话 */
+		conversationId: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
 	},
 	object,
 );
@@ -35,6 +37,8 @@ export const CustomProviderUpsertSchema = Type.Object(
 );
 export const ConfigSchema = Type.Object(
 	{
+		/** agent 配置写入的目标会话 id；缺省为 root 会话（新选题的默认值模板） */
+		conversationId: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
 		provider: Type.Optional(
 			Type.Object(
 				{ id: text, apiKey: Type.String({ minLength: 1, maxLength: 10_000 }) },

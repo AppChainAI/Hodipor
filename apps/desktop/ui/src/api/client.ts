@@ -7,6 +7,8 @@ import {
 	type ConfigView,
 	type CustomProviderUpsert,
 	type HistoryPage,
+	type LibraryView,
+	type TopicCreated,
 } from "@siftory/protocol";
 
 type Connection = { port: number; token?: string | null };
@@ -36,15 +38,21 @@ async function request<T>(
 		throw new Error(result?.error ?? `请求失败（${response.status}）`);
 	return result as T;
 }
-export const getHistory = (before: string) =>
-	request<HistoryPage>(`/api/history?before=${encodeURIComponent(before)}`);
+export const getHistory = (before: string, conversationId?: string) =>
+	request<HistoryPage>(
+		`/api/history?before=${encodeURIComponent(before)}${conversationId ? `&conversation=${encodeURIComponent(conversationId)}` : ""}`,
+	);
 export const getConfig = () => request<ConfigView>("/api/config");
 export const putConfig = (update: ConfigUpdate) =>
 	request<void>("/api/config", "PUT", update);
-export const sendChat = (content: string, requestId: string) =>
-	request<ChatSubmitResult>("/api/chat", "POST", { content, requestId });
-export const abortChat = () => request<void>("/api/abort", "POST");
+export const sendChat = (content: string, requestId: string, conversationId?: string) =>
+	request<ChatSubmitResult>("/api/chat", "POST", { content, requestId, conversationId });
+export const abortChat = (conversationId?: string) =>
+	request<void>("/api/abort", "POST", { conversationId });
 export const resetChat = () => request<void>("/api/reset", "POST");
+export const createTopic = (content: string, requestId: string) =>
+	request<TopicCreated>("/api/topics", "POST", { content, requestId });
+export const getLibrary = () => request<LibraryView>("/api/library");
 export const upsertCustomProvider = (input: CustomProviderUpsert) =>
 	request<void>("/api/custom-providers", "PUT", input);
 export const deleteCustomProvider = (id: string) =>
@@ -54,6 +62,7 @@ export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 export function subscribeChat(
 	onSnapshot: (snapshot: ChatSnapshot) => void,
 	onStatus: (status: ConnectionStatus, error?: string) => void,
+	conversationId?: string,
 ): () => void {
 	let socket: WebSocket | undefined;
 	let closed = false;
@@ -72,7 +81,10 @@ export function subscribeChat(
 			const agent = await connection();
 			if (closed) return;
 			socket = new WebSocket(
-				`ws://127.0.0.1:${agent?.port ?? DEV_AGENT_PORT}/ws${agent?.token ? `?token=${encodeURIComponent(agent.token)}` : ""}`,
+				`ws://127.0.0.1:${agent?.port ?? DEV_AGENT_PORT}/ws?${[
+					...(agent?.token ? [`token=${encodeURIComponent(agent.token)}`] : []),
+					...(conversationId ? [`conversation=${encodeURIComponent(conversationId)}`] : []),
+				].join("&")}`,
 			);
 			socket.onmessage = (event) => {
 				try {

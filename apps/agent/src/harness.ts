@@ -1,5 +1,5 @@
-import { join, resolve } from "node:path";
-import { mkdir } from "node:fs/promises";
+import { join, resolve, basename, extname, sep } from "node:path";
+import { mkdir, rename, stat, readFile } from "node:fs/promises";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
 	createModels,
@@ -36,6 +36,8 @@ import {
 import { installAll } from "./extensions";
 import { acquireOwnership } from "./storage/ownership";
 import { openBunSqlite } from "./storage/sqlite";
+import { openAppDb, type AppDb, type TopicRow, type ArtifactRow } from "./storage/appdb";
+import type { ConversationId } from "@earendil-works/pi-durable";
 
 export interface AgentHost {
 	harness: Harness;
@@ -53,7 +55,23 @@ export interface AgentHost {
 	/** 会话级 LLM 配置：改的是 root 的 pi.agent 文档（SQLite 持久） */
 	getAgent(): Promise<AgentConfigView>;
 	configureAgent(change: AgentChange): Promise<void>;
-	latestSubmission(): Promise<SubmissionRecord | undefined>;
+	latestSubmission(conversationId?: ConversationId): Promise<SubmissionRecord | undefined>;
+	/** 按 id 取会话（选题）；不存在返回 undefined */
+	conversation(id: string): Promise<Conversation | undefined>;
+	/** 有活跃任务或未安置提交的会话 id 集（单并发判定 + 库级忙态） */
+	busyConversationIds(): Promise<Set<string>>;
+	/** 新建选题：分配 workspace/topics/<slug>-<id8>/ 目录并绑定 cwd，复制 root 的模型配置 */
+	createTopic(content: string): Promise<TopicRow>;
+	getTopic(id: string): TopicRow | undefined;
+	listTopics(): TopicRow[];
+	listArtifacts(topicId: string): ArtifactRow[];
+	/** 选题目录的绝对路径 */
+	topicDir(topic: TopicRow): string;
+	/** 登记产物：校验路径在选题目录内 → 移入 artifacts/ → 写索引。失败抛 Error（文案面向模型/用户） */
+	registerArtifact(
+		conversationId: ConversationId,
+		args: { path: string; type: string; stage: string; title?: string },
+	): Promise<ArtifactRow>;
 	close(): Promise<void>;
 }
 
@@ -123,7 +141,6 @@ async function openHost(
 	}
 
 	const registry = createRegistry();
-	installAll(registry);
 
 	// 自定义 OpenAI 兼容供应商（providers.json）
 	let customProviders = await loadCustomProviders(dataDir);
@@ -142,6 +159,7 @@ async function openHost(
 	const storage = await SqliteStorage.open(
 		openBunSqlite(join(dataDir, "siftory.sqlite")),
 	);
+	const appdb = openAppDb(dataDir);
 	// 文件/命令工具的工作目录：会话未设 cwd 时用数据目录下的 workspace/
 	const workspace = join(dataDir, "workspace");
 	await mkdir(workspace, { recursive: true });
@@ -164,6 +182,70 @@ async function openHost(
 	}
 
 	harness.resume();
+
+	const topicDir = (topic: TopicRow) => join(workspace, topic.dir);
+	const registerArtifact: AgentHost["registerArtifact"] = async (
+		conversationId,
+		args,
+	) => {
+		const topic = appdb.getTopic(String(conversationId));
+		if (!topic) throw new Error("当前会话不是选题，无法登记产物");
+		const base = topicDir(topic);
+		const src = resolve(base, args.path);
+		if (src !== base && !src.startsWith(base + sep))
+			throw new Error(`路径必须在选题目录内：${args.path}`);
+		const info = await stat(src).catch(() => undefined);
+		if (!info?.isFile()) throw new Error(`文件不存在：${args.path}`);
+		const artifactsDir = join(base, "artifacts");
+		await mkdir(artifactsDir, { recursive: true });
+		const ext = extname(src);
+		const stem = basename(src, ext);
+		let name = basename(src);
+		for (let n = 2; ; n++) {
+			const exists = await stat(join(artifactsDir, name)).catch(() => undefined);
+			if (!exists) break;
+			name = `${stem}-${n}${ext}`;
+		}
+		await rename(src, join(artifactsDir, name));
+		const relPath = `artifacts/${name}`;
+		const title = args.title?.trim() || stem;
+		let excerpt: string | null = null;
+		if (info.size <= 256 * 1024 && [".md", ".markdown", ".txt"].includes(ext.toLowerCase())) {
+			const text = await readFile(join(artifactsDir, name), "utf8").catch(() => "");
+			excerpt = text.replace(/\s+/g, " ").trim().slice(0, 300) || null;
+		}
+		const id = appdb.insertArtifact({
+			topic_id: topic.id,
+			type: args.type,
+			stage: args.stage,
+			title,
+			rel_path: relPath,
+			size: info.size,
+			excerpt,
+		});
+		return {
+			id,
+			topic_id: topic.id,
+			type: args.type,
+			stage: args.stage,
+			title,
+			rel_path: relPath,
+			size: info.size,
+			excerpt,
+			created_at: Date.now(),
+		};
+	};
+	// 扩展安装需要 appdb 与选题目录就位；agent 在每次运行时对注册表快照惰性解析，此处安装即对所有会话生效
+	installAll(registry, { artifacts: { registerArtifact } });
+
+	const slugify = (title: string) => {
+		const slug = title
+			.replace(/[\\/:*?"<>|\s]+/g, "-")
+			.replace(/-{2,}/g, "-")
+			.replace(/^-|-$/g, "")
+			.slice(0, 12);
+		return slug || "topic";
+	};
 
 	return {
 		harness,
@@ -227,15 +309,60 @@ async function openHost(
 			};
 		},
 		configureAgent: (change) => root.configure(change, context),
-		latestSubmission: async () =>
+		latestSubmission: async (conversationId) =>
 			(
 				await storage.scanSubmissions(
-					{ conversationId: root.id, order: "descending" },
+					{ conversationId: conversationId ?? root.id, order: "descending" },
 					1,
 					undefined,
 					context,
 				)
 			).items[0],
-		close: () => harness.close(context),
+		conversation: (id) =>
+			harness.conversation(Number(id) as ConversationId, context),
+		busyConversationIds: async () => {
+			const inspection = await harness.inspect(context);
+			const ids = new Set<string>();
+			for (const task of inspection.tasks)
+				if (task.record.conversationId) ids.add(String(task.record.conversationId));
+			for (const submission of inspection.submissions)
+				ids.add(String(submission.conversationId));
+			return ids;
+		},
+		createTopic: async (content) => {
+			const firstLine = content.trim().split("\n", 1)[0].trim();
+			const title =
+				firstLine.length > 24 ? `${firstLine.slice(0, 24)}…` : firstLine;
+			const agent = await root.agent(context);
+			const conversation = await harness.createConversation(
+				{
+					ownership: { kind: "ownerless" },
+					agent: {
+						model: agent.model,
+						thinkingLevel: agent.thinkingLevel,
+						instructions: agent.instructions,
+					},
+				},
+				context,
+			);
+			const id = String(conversation.id);
+			const id8 = id.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
+			let dir = `topics/${slugify(title)}-${id8}`;
+			if (appdb.getTopicByDir(dir)) dir = `topics/${slugify(title)}-${id}`;
+			await mkdir(join(workspace, dir), { recursive: true });
+			await conversation.configure({ cwd: join(workspace, dir) }, context);
+			const topic: TopicRow = { id, title, dir, created_at: Date.now() };
+			appdb.insertTopic(topic);
+			return topic;
+		},
+		getTopic: (id) => appdb.getTopic(id),
+		listTopics: () => appdb.listTopics(),
+		listArtifacts: (topicId) => appdb.listArtifacts(topicId),
+		topicDir,
+		registerArtifact,
+		close: async () => {
+			await harness.close(context);
+			appdb.close();
+		},
 	};
 }

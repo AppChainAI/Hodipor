@@ -29,6 +29,8 @@ export interface ConfigView {
 
 /** PUT /api/config 的请求体（字段均可独立） */
 export interface ConfigUpdate {
+	/** agent 配置写入的目标会话 id；缺省 root 会话（新选题的默认值模板） */
+	conversationId?: string;
 	provider?: { id: string; apiKey: string };
 	/** 会话级 LLM 配置：写入会话的 pi.agent 文档（SQLite 持久） */
 	agent?: AgentConfigUpdate;
@@ -106,6 +108,39 @@ export interface ChatSnapshot {
 }
 
 export type ServerMessage = ChatSnapshot;
+
+/** 产物索引行（UI 视图）；文件本体在选题目录 artifacts/ 下 */
+export interface ArtifactView {
+	id: number;
+	type: string;
+	stage: string;
+	title: string;
+	/** 相对选题目录的路径 */
+	relPath: string;
+	size: number;
+	excerpt?: string;
+	createdAt: number;
+}
+
+/** 库级选题摘要：进行中/已完成的派生状态由 busy 表达（无显式完成标记） */
+export interface TopicSummary {
+	id: string;
+	title: string;
+	createdAt: number;
+	busy: boolean;
+	/** 最近一次提交未获回答且非用户停止（模型错误、未配置模型等） */
+	failed: boolean;
+	artifacts: ArtifactView[];
+}
+
+export interface LibraryView {
+	topics: TopicSummary[];
+}
+
+export interface TopicCreated {
+	topicId: string;
+	title: string;
+}
 
 /** dev 模式 sidecar 固定端口（免 token）；apps/agent main.ts 与 UI 直连共用 */
 export const DEV_AGENT_PORT = 47911;
