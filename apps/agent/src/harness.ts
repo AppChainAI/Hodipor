@@ -161,7 +161,9 @@ async function openHost(
 	);
 	const appdb = openAppDb(dataDir);
 	// 文件/命令工具的工作目录：会话未设 cwd 时用数据目录下的 workspace/
-	const workspace = join(dataDir, "workspace");
+	// 必须归一为绝对路径：dataDir 可能是相对路径（dev 默认 .data），相对 base 会让
+	// registerArtifact 的 startsWith 守卫把合法路径全部误判越界（resolve 后的绝对 src 永远不以相对 base 开头）
+	const workspace = resolve(join(dataDir, "workspace"));
 	await mkdir(workspace, { recursive: true });
 	const harness = await Harness.open(storage, {
 		models,
@@ -200,13 +202,17 @@ async function openHost(
 		await mkdir(artifactsDir, { recursive: true });
 		const ext = extname(src);
 		const stem = basename(src, ext);
+		// 已在 artifacts/ 里的文件不再移动（模型直接写进产物目录是合理的，重复登记也不改名）
+		const alreadyInPlace = resolve(src) === resolve(join(artifactsDir, basename(src)));
 		let name = basename(src);
-		for (let n = 2; ; n++) {
-			const exists = await stat(join(artifactsDir, name)).catch(() => undefined);
-			if (!exists) break;
-			name = `${stem}-${n}${ext}`;
+		if (!alreadyInPlace) {
+			for (let n = 2; ; n++) {
+				const exists = await stat(join(artifactsDir, name)).catch(() => undefined);
+				if (!exists) break;
+				name = `${stem}-${n}${ext}`;
+			}
+			await rename(src, join(artifactsDir, name));
 		}
-		await rename(src, join(artifactsDir, name));
 		const relPath = `artifacts/${name}`;
 		const title = args.title?.trim() || stem;
 		let excerpt: string | null = null;
