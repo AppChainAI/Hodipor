@@ -8,6 +8,6 @@
     "./todos": "./src/todos.ts"
   },
   "dependencies": {
-    "typebox": "1.3.27"
+    "typebox": "1.3.37"
   }
 }

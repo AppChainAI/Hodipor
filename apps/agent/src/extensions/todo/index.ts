@@ -31,7 +31,7 @@ const todo = defineTool({
 			const state = (await api.snapshot(TodosDoc, api.conversationId, context)) ?? EMPTY_TODO_STATE;
 			const { op } = applyTaskMutation(state, args.action, params);
 			return {
-				content: [{ type: "text" as const, text: formatContent(op, state) }],
+				output: [{ type: "text" as const, text: formatContent(op, state) }],
 				...(op.kind === "error" ? { isError: true } : {}),
 			};
 		}
@@ -48,7 +48,7 @@ const todo = defineTool({
 			return r;
 		}, context);
 		return {
-			content: [{ type: "text" as const, text: formatContent(result.op, result.state) }],
+			output: [{ type: "text" as const, text: formatContent(result.op, result.state) }],
 			...(result.op.kind === "error" ? { isError: true } : {}),
 		};
 	},

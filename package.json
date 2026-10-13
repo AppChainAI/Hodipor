@@ -21,7 +21,7 @@
     "test:native": "bun scripts/test-sidecar.ts --native"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.1",
+    "@tauri-apps/cli": "^2.12.2",
     "sharp": "^0.35.5"
   }
 }

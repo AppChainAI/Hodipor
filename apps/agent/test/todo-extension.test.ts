@@ -44,6 +44,16 @@ it("persists todo state through a scripted model tool call and a reopen", async 
 	const settled = await submission.wait(context);
 	expect(settled.status).toBe("done");
 
+	// 模型实际收到的工具结果文本（1.2.0 起 ToolExecutionResult.content 改名 output，回归守卫）
+	const entries = await root.entries({}, 100, undefined, context);
+	const toolTexts = entries.items
+		.filter((e) => e.kind === "pi.tool-result")
+		.map((e) => (e.model?.[0] as { content?: { text?: string }[] }).content?.[0]?.text ?? "");
+	expect(toolTexts).toHaveLength(3);
+	const joined = toolTexts.join("\n");
+	expect(joined).toContain("已创建 #1: 写文档");
+	expect(joined).toContain("in_progress");
+
 	const live = await harness.snapshot(TodosDoc, root.id, context);
 	expect(live?.tasks.map((t) => [t.id, t.subject, t.status])).toEqual([
 		[1, "写文档", "in_progress"],
