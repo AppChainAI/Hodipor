@@ -9,8 +9,10 @@ import {
 	type ConnectionStatus,
 } from "./api/client";
 import { Composer } from "./components/Composer";
+import { EmptyState } from "./components/EmptyState";
 import { Markdown } from "./components/Markdown";
 import { TodoPanel } from "./components/TodoPanel";
+import { ToolMessage } from "./components/ToolMessage";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { Button } from "./components/ui/button";
 import { Alert, AlertDescription } from "./components/ui/alert";
@@ -25,6 +27,7 @@ export function App() {
 	const [historyError, setHistoryError] = useState<string>();
 	const [loadingHistory, setLoadingHistory] = useState(false);
 	const [resetError, setResetError] = useState<string>();
+	const [composerSeed, setComposerSeed] = useState<{ text: string; id: number }>();
 	const historyLoaded = useRef(false);
 	// 当前上下文的标识（快照 contextId）；reset 后变化，本地累积的消息随之作废
 	const contextId = useRef<string | undefined>(undefined);
@@ -107,6 +110,15 @@ export function App() {
 	}, [snapshot]);
 
 	const busy = snapshot?.busy ?? false;
+	const modelLabel = snapshot?.model
+		? `${snapshot.model.provider}/${snapshot.model.modelId}`
+		: "未配置模型";
+	const connectionLabel =
+		connection === "connected"
+			? "已连接"
+			: connection === "connecting"
+				? "连接中"
+				: "已断开";
 
 	return (
 		<div className="app">
@@ -115,10 +127,14 @@ export function App() {
 					<img className="brand-logo" src="/logo.png" alt="" width={32} height={32} />
 					Siftory
 				</h1>
-				<span className="model">
-					{snapshot?.model
-						? `${snapshot.model.provider}/${snapshot.model.modelId}`
-						: "未配置模型"}
+				<span className="status-chip" title={`${modelLabel} · ${connectionLabel}`}>
+					<span className="status-dot" data-state={connection} />
+					<span className="status-model">
+						{snapshot?.model ? snapshot.model.modelId : "未配置模型"}
+					</span>
+					{!!snapshot?.queued && (
+						<span className="status-queued">排队 {snapshot.queued}</span>
+					)}
 				</span>
 				<Button
 					variant="ghost"
@@ -136,16 +152,15 @@ export function App() {
 				{resetError && (
 					<Alert variant="destructive" className="w-auto"><AlertDescription>{resetError}</AlertDescription></Alert>
 				)}
-				<Button variant="ghost" onClick={() => setShowSettings(!showSettings)}>
-					{showSettings ? "返回对话" : "设置"}
+				<Button variant="ghost" onClick={() => setShowSettings(true)}>
+					设置
 				</Button>
 			</header>
 
-			{showSettings ? (
-				<SettingsPanel onSaved={() => {}} />
-			) : (
-				<>
-					<main
+			<SettingsPanel open={showSettings} onOpenChange={setShowSettings} />
+
+			<>
+				<main
 						className="conversation"
 						ref={mainRef}
 						onScroll={(event) => {
@@ -157,6 +172,9 @@ export function App() {
 								100;
 						}}
 					>
+						{messages.length === 0 && !busy && !historyBefore && (
+							<EmptyState onPick={(text) => setComposerSeed({ text, id: Date.now() })} />
+						)}
 						{historyBefore && (
 							<Button
 								variant="ghost"
@@ -176,15 +194,11 @@ export function App() {
 									: (connectionError ?? "连接中断，正在重试…")}
 							</div>
 						)}
-						{!!snapshot?.queued && (
-							<div className="hint">排队消息：{snapshot.queued}</div>
-						)}
 						{messages.map((m) =>
 							m.role === "tool" ? (
-								<div key={m.id} className={`message tool${m.isError ? " error" : ""}`}>
+								<div key={m.id} className="message tool">
 									<div className="bubble">
-										<span className="tool-name">⚙ {m.toolName}</span>
-										{m.text && <span className="tool-text">{m.text}</span>}
+										<ToolMessage toolName={m.toolName} text={m.text} isError={m.isError} />
 									</div>
 								</div>
 							) : (
@@ -217,17 +231,17 @@ export function App() {
 								}[snapshot.lastError] ?? snapshot.lastError}
 							</AlertDescription></Alert>
 						)}
-						<div ref={bottomRef} />
-					</main>
-					{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
-					<Composer
-						connected={connection === "connected"}
-						busy={busy}
-						onSend={sendChat}
-						onStop={abortChat}
-					/>
-				</>
-			)}
+					<div ref={bottomRef} />
+				</main>
+				{snapshot?.todos && <TodoPanel state={snapshot.todos} />}
+				<Composer
+					connected={connection === "connected"}
+					busy={busy}
+					seed={composerSeed}
+					onSend={sendChat}
+					onStop={abortChat}
+				/>
+			</>
 		</div>
 	);
 }

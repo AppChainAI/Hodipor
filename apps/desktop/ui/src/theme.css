@@ -28,6 +28,7 @@
 	--ring: #286b68;
 	--user-surface: #edf2ef;
 	--story-accent: #695078;
+	--tool-running: rgb(40 107 104 / 12%);
 	--brand: #f4d56b;
 	--focus-ring: rgb(40 107 104 / 12%);
 	--shadow: 0 2px 4px rgb(24 40 34 / 3%), 0 8px 24px rgb(24 40 34 / 4%);
@@ -50,6 +51,7 @@
 	--ring: #8dcac0;
 	--user-surface: #303834;
 	--story-accent: #c1a9d0;
+	--tool-running: rgb(141 202 192 / 12%);
 	--focus-ring: rgb(141 202 192 / 12%);
 	--shadow: 0 2px 12px rgb(0 0 0 / 12%);
 	--popup-shadow: 0 4px 12px rgb(0 0 0 / 16%), 0 16px 48px rgb(0 0 0 / 24%);

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from "./ui/alert";
 export function Composer(props: {
 	busy: boolean;
 	connected: boolean;
+	/** 外部请求把文本填入输入框（示例选题点击）；id 变化才生效 */
+	seed?: { text: string; id: number };
 	onSend: (text: string, requestId: string) => Promise<unknown>;
 	onStop: () => Promise<unknown>;
 }) {
@@ -15,6 +17,15 @@ export function Composer(props: {
 	const [error, setError] = useState<string>();
 	const pending = useRef<{ text: string; id: string } | undefined>(undefined);
 	const inFlight = useRef(false);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const seedId = useRef<number | undefined>(undefined);
+	useEffect(() => {
+		if (props.seed && props.seed.id !== seedId.current) {
+			seedId.current = props.seed.id;
+			setText(props.seed.text);
+			inputRef.current?.focus();
+		}
+	}, [props.seed]);
 	const send = async () => {
 		const value = text.trim();
 		if (!value || inFlight.current || !props.connected) return;
@@ -51,6 +62,7 @@ export function Composer(props: {
 			)}
 			<div className="composer">
 				<Textarea
+					ref={inputRef}
 					className="composer-input"
 					value={text}
 					aria-label="主题或任务"

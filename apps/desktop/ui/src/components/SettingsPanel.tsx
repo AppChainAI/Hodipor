@@ -8,6 +8,7 @@ import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useTheme } from "./ThemeProvider";
 import { parseTheme } from "../theme";
 
@@ -21,8 +22,8 @@ const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 	{ value: "max", label: "max" },
 ];
 
-/** 提供商 + 会话级 LLM 配置面板。model/thinkingLevel/instructions 存会话的 pi.agent（SQLite），key 存 auth.json */
-export function SettingsPanel(props: { onSaved: () => void }) {
+/** 提供商 + 会话级 LLM 配置对话框。model/thinkingLevel/instructions 存会话的 pi.agent（SQLite），key 存 auth.json */
+export function SettingsPanel(props: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const { preference, setPreference } = useTheme();
 	const [config, setConfig] = useState<ConfigView>();
 	const [provider, setProvider] = useState("openai");
@@ -64,7 +65,6 @@ export function SettingsPanel(props: { onSaved: () => void }) {
 			});
 			setApiKey("");
 			await reload();
-			props.onSaved();
 		} catch (error) {
 			setError(error instanceof Error ? error.message : "保存失败，请重试");
 		} finally {
@@ -101,23 +101,20 @@ export function SettingsPanel(props: { onSaved: () => void }) {
 		</>
 	);
 
-	if (!config)
-		return (
-			<div className="settings">
-				{appearance}
-				{error ?? "加载中…"}
-				<Button
-					onClick={() =>
-						void reload().catch((error) => setError(String(error)))
-					}
-				>
-					重新加载
-				</Button>
-			</div>
-		);
-
-	return (
-		<div className="settings">
+	const body = !config ? (
+		<>
+			{appearance}
+			{error ?? "加载中…"}
+			<Button
+				onClick={() =>
+					void reload().catch((error) => setError(String(error)))
+				}
+			>
+				重新加载
+			</Button>
+		</>
+	) : (
+		<>
 			{error && (
 				<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
 			)}
@@ -190,6 +187,17 @@ export function SettingsPanel(props: { onSaved: () => void }) {
 				providers={config.customProviders}
 				onChanged={reload}
 			/>
-		</div>
+		</>
+	);
+
+	return (
+		<Dialog open={props.open} onOpenChange={props.onOpenChange}>
+			<DialogContent className="settings-dialog sm:max-w-2xl" showCloseButton={false}>
+				<DialogHeader>
+					<DialogTitle>设置</DialogTitle>
+				</DialogHeader>
+				<div className="settings">{body}</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
