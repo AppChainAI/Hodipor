@@ -72,17 +72,35 @@ export function renderTodoPanel(state) {
 	return lines;
 }
 
-/** /todos command body. */
+/** /todos command body: transcript-appended, grouped, mirrors upstream /todos. */
 export function formatTodoSummary(state) {
 	const visible = state.tasks.filter((t) => t.status !== "deleted");
 	if (visible.length === 0) return "No todos yet. Ask the agent to add some!";
 	const counts = selectTodoCounts(state);
 	const groups = selectTasksByStatus(state);
-	const lines = [`${counts.completed}/${counts.total} completed · ${counts.inProgress} in progress · ${counts.pending} pending`];
-	for (const [label, tasks] of [["Pending", groups.pending], ["In progress", groups.inProgress], ["Completed", groups.completed]]) {
-		if (tasks.length === 0) continue;
-		lines.push(`── ${label} ──`);
-		for (const task of tasks) lines.push(formatListLine(task));
+	const header = [];
+	if (counts.completed > 0) header.push(`${counts.completed}/${counts.total} completed`);
+	if (counts.inProgress > 0) header.push(`${counts.inProgress} in progress`);
+	if (counts.pending > 0) header.push(`${counts.pending} pending`);
+	const lines = [header.join(" · ")];
+	if (groups.pending.length > 0) {
+		lines.push("── Pending ──");
+		for (const task of groups.pending) lines.push(formatCommandTaskLine(task, "○"));
+	}
+	if (groups.inProgress.length > 0) {
+		lines.push("── In Progress ──");
+		for (const task of groups.inProgress) lines.push(formatCommandTaskLine(task, "◐"));
+	}
+	if (groups.completed.length > 0) {
+		lines.push("── Completed ──");
+		for (const task of groups.completed) lines.push(formatCommandTaskLine(task, "✓"));
 	}
 	return lines.join("\n");
+}
+
+/** Per-task line for /todos: `  ○ #1 subject (activeForm)    ⛓ #2,#3`. */
+function formatCommandTaskLine(task, glyph) {
+	const form = task.status === "in_progress" && task.activeForm ? ` (${sanitizeTerminalText(task.activeForm)})` : "";
+	const block = task.blockedBy?.length ? `    ⛓ ${task.blockedBy.map((id) => `#${id}`).join(",")}` : "";
+	return `  ${glyph} #${task.id} ${sanitizeTerminalText(task.subject)}${form}${block}`;
 }

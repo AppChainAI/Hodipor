@@ -150,7 +150,7 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 		},
 		showTodos: async () => {
 			const todo = await harness.snapshot(TodoDoc, state.current.id, RUN_CONTEXT);
-			notify(formatTodoSummary(todo ?? { tasks: [], nextId: 1 }));
+			appendTranscriptText(formatTodoSummary(todo ?? { tasks: [], nextId: 1 }));
 		},
 	};
 
@@ -225,6 +225,13 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 	const todoPanel = new Text("", 1, 0);
 	widgetContainer.addChild(todoPanel);
 
+	/** Append a read-only text block to the transcript (for /todos and similar). */
+	/** @param {string} text */
+	function appendTranscriptText(text) {
+		transcriptContainer.addChild(new Text(text, 1, 0));
+		tui.requestRender();
+	}
+
 	editor.onSubmit = async (text) => {
 		const value = text.trim();
 		if (!value) return;
@@ -247,6 +254,14 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 	};
 	editor.onCtrlD = () => {
 		if (!state.busy && editor.getText() === "") state.exiting = true;
+	};
+	// Todo shortcut: Ctrl+T (or "t" on an empty editor) shows the todo list.
+	editor.onExtensionShortcut = (data) => {
+		if (data === "\x14" || (data === "t" && editor.getText() === "")) {
+			app.showTodos();
+			return true;
+		}
+		return false;
 	};
 	const onSigint = () => {
 		if (state.busy) state.current.abort(RUN_CONTEXT).catch(() => {});

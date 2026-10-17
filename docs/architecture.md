@@ -38,7 +38,7 @@ extensions/todo/               durable 原生 todo 扩展（工具 + 事务文�
 
 ## todo 扩展（extensions/todo/）
 
-移植自 `@juicesharp/rpiv-todo@2.13.8`（MIT，版权保留）。reducer、校验、环检测、selectors 原样保留；替换为 durable 原生接口：`defineTool`、会话作用域 `rewindable`/fork-asOf 文档（`app.todo`）、宿主面板挂载与 `/todos`。回执按 callId 保存、上限 64 条。
+移植自 `@juicesharp/rpiv-todo@2.13.8`（MIT，版权保留）。reducer、校验、环检测、selectors 原样保留；替换为 durable 原生接口：`defineTool`、会话作用域 `rewindable`/fork-asOf 文档（`app.todo`）、宿主面板挂载、`/todos` 分组列表命令与 Ctrl+T 快捷键。回执按 callId 保存、上限 64 条。
 
 ## 测试布局
 

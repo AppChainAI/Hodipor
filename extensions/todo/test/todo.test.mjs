@@ -11,7 +11,7 @@ import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { applyTaskMutation, selectTodoCounts } from "../reducer.mjs";
 import { TodoDoc, mutateTodo, stripReceipts } from "../state.mjs";
 import { createTodoExtension } from "../index.mjs";
-import { formatContent, renderTodoPanel } from "../view.mjs";
+import { formatContent, formatTodoSummary, renderTodoPanel } from "../view.mjs";
 
 const EMPTY = { tasks: [], nextId: 1 };
 
@@ -145,4 +145,30 @@ test("receipts stay bounded", async (t) => {
 	const again = await mutateTodoInCommit(harness, root.id, "call-0", "create", { subject: "task 0" });
 	assert.equal(again.replayed, false);
 	assert.equal(again.op.kind, "create");
+});
+
+test("view: /todos groups by status with counts, indent, and block refs", () => {
+	const state = {
+		tasks: [
+			{ id: 1, subject: "research", status: "pending", blockedBy: [3] },
+			{ id: 2, subject: "implement", status: "in_progress", activeForm: "coding" },
+			{ id: 3, subject: "design", status: "completed" },
+			{ id: 4, subject: "dropped", status: "deleted" },
+		],
+		nextId: 5,
+	};
+	const out = formatTodoSummary(state);
+	const lines = out.split("\n");
+	assert.equal(lines[0], "1/3 completed · 1 in progress · 1 pending");
+	assert.deepEqual(lines, [
+		lines[0],
+		"── Pending ──",
+		"  ○ #1 research    ⛓ #3",
+		"── In Progress ──",
+		"  ◐ #2 implement (coding)",
+		"── Completed ──",
+		"  ✓ #3 design",
+	]);
+	// Empty state
+	assert.equal(formatTodoSummary({ tasks: [], nextId: 1 }), "No todos yet. Ask the agent to add some!");
 });
