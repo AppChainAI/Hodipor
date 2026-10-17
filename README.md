@@ -20,8 +20,10 @@ Siftory 的工作目录是启动时所在目录。要在任意目录使用命令
 ```sh
 bun link
 cd /path/to/project
-siftory
+bunx siftory
 ```
+
+`bun link` 把包注册到 Bun 全局目录，`bunx` 从那里解析命令，不依赖 `~/.bun/bin` 是否在 PATH。若它已在 PATH，也可以直接运行 `siftory`。
 
 不链接也可以直接运行：
 

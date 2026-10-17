@@ -1,5 +1,7 @@
 # Siftory 架构
 
+本文描述当前实现。后续 durable 原生产品的目标架构、目录、扩展移植与迁移计划见 [durable 原生产品设计](durable-native-design.md)，尚未实施。
+
 ## 定位
 
 Siftory 是通用 Agent 底座，不预设业务场景。优先复用完整 Pi 的深模块，不重复实现会话、工具循环、模型协议或扩展宿主。

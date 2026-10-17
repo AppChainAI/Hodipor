@@ -32,7 +32,7 @@ test("launcher delegates native help and version", async (t) => {
   const { run } = await fixture(t);
   assert.match(run(["--help"]).stdout, /--skill/);
   assert.match(run(["--help"]).stdout, /--resume/);
-  assert.match(run(["--version"]).stdout, /1\.2\.0/);
+  assert.match(run(["--version"]).stdout, /1\.3\.0/);
 });
 
 test("real CLI loads a provider extension, saves/resumes a session and isolates config", async (t) => {
