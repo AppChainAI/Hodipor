@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,68 +8,39 @@ import test from "node:test";
 
 const cli = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
 
-async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "siftory-cli-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const agentDir = join(root, "agent");
-  const personalPi = join(root, "personal-pi");
-  await mkdir(personalPi);
-  await writeFile(join(personalPi, "settings.json"), '{"fixture":"untouched"}');
-  function run(args) {
-    const result = spawnSync(process.execPath, [cli, ...args], {
-      cwd: root, encoding: "utf8", timeout: 20_000,
-      env: { ...process.env, SIFTORY_AGENT_DIR: agentDir, PI_CODING_AGENT_DIR: personalPi,
-        PI_CODING_AGENT_SESSION_DIR: "", PI_OFFLINE: "1", PI_SKIP_VERSION_CHECK: "1", PI_TELEMETRY: "0" },
-    });
-    assert.ifError(result.error);
-    assert.equal(result.status, 0, result.stderr);
-    return result;
-  }
-  return { root, agentDir, personalPi, run };
-}
-
-test("launcher delegates native help and version", async (t) => {
-  const { run } = await fixture(t);
-  assert.match(run(["--help"]).stdout, /--skill/);
-  assert.match(run(["--help"]).stdout, /--resume/);
-  assert.match(run(["--version"]).stdout, /1\.3\.0/);
-});
-
-test("real CLI loads a provider extension, saves/resumes a session and isolates config", async (t) => {
-  const { root, agentDir, personalPi, run } = await fixture(t);
-  const providerPath = join(root, "fixture-provider.ts");
-  await writeFile(providerPath, `
-    import { fauxProvider, fauxAssistantMessage } from "@earendil-works/pi-ai";
-    export default function (pi) {
-      const faux = fauxProvider({ provider: "siftory-fixture", models: [{ id: "fixture-1" }] });
-      faux.provider.auth.apiKey.check = async () => ({ type: "api_key", source: "fixture" });
-      faux.setResponses([(context) => {
-        const system = JSON.stringify(context.messages.filter((m) => m.role === "system"));
-        if (!system.includes("You are Siftory")) throw new Error("missing Siftory persona");
-        const users = context.messages.filter((m) => m.role === "user").length;
-        return fauxAssistantMessage("fixture users=" + users);
-      }]);
-      pi.registerProvider(faux.provider);
-    }
-  `);
-  const args = ["--offline", "--no-context-files", "--no-skills", "--no-mcp",
-    "--extension", providerPath, "--model", "siftory-fixture/fixture-1", "--thinking", "off"];
-  const first = run([...args, "--mode", "json", "first input"]);
-  const events = first.stdout.trim().split("\n").map((line) => JSON.parse(line));
-  assert(events.some((e) => e.type === "agent_settled"));
-  const header = events.find((e) => e.type === "session");
-  assert(header);
-  const resumed = run([...args, "--continue", "--print", "second input"]);
-  assert.match(resumed.stdout, /fixture users=2/);
-  assert.equal(await readFile(join(personalPi, "settings.json"), "utf8"), '{"fixture":"untouched"}');
-  const sessionsDir = join(agentDir, "sessions");
-  const files = (await readdir(sessionsDir, { recursive: true })).filter((file) => file.endsWith(".jsonl"));
-  assert.equal(files.length, 1);
-  const sessionPath = join(sessionsDir, files[0]);
-  const transcript = await readFile(sessionPath, "utf8");
-  assert.equal(JSON.parse(transcript.split("\n")[0]).id, header.id);
-  assert.match(transcript, /first input/);
-  const exported = join(root, "session.html");
-  run(["--export", sessionPath, exported]);
-  assert.match(await readFile(exported, "utf8"), /<html/);
+test("launcher: help, version, and unknown-option handling", async (t) => {
+	const root = await mkdtemp(join(tmpdir(), "siftory-cli-"));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const run = (args, envOverrides = {}) => {
+		const result = spawnSync(process.execPath, [cli, ...args], {
+			cwd: root,
+			encoding: "utf8",
+			timeout: 20_000,
+			env: { ...process.env, ...envOverrides },
+		});
+		assert.ifError(result.error);
+		return result;
+	};
+	const help = run(["--help"]);
+	assert.equal(help.status, 0);
+	assert.match(help.stdout, /--home/);
+	assert.match(help.stdout, /--cwd/);
+	assert.match(run(["--version"]).stdout, /durable/);
+	const bad = run(["--nope"]);
+	assert.equal(bad.status, 2);
+	assert.match(bad.stderr, /unknown option/);
+	// No model configured and none available: a clean failure, not a crash. Strip credentials
+	// so a developer's own env keys cannot make this machine-dependent.
+	const sterileEnv = Object.fromEntries(
+		Object.entries(process.env).filter(([key]) => !/_API_KEY$|^ANTHROPIC_|^OPENAI_|^GOOGLE_|^GROQ_|^XAI_|^MOONSHOT_|^ZAI_|^MISTRAL_|^OPENROUTER_/.test(key)),
+	);
+	const empty = spawnSync(process.execPath, [cli, "--print", "hi", "--home", join(root, "h")], {
+		cwd: root,
+		encoding: "utf8",
+		timeout: 20_000,
+		env: sterileEnv,
+	});
+	assert.ifError(empty.error);
+	assert.equal(empty.status, 1);
+	assert.match(empty.stderr, /no model available/);
 });

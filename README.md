@@ -1,12 +1,12 @@
 # Siftory
 
-通用、可扩展的终端 Agent 底座，基于完整 Pi 1.2.0。没有预设研究、视频或其他业务场景。
+通用、可扩展的终端 Agent，durable 原生执行引擎。没有预设研究、视频或其他业务场景。
 
-复用 Pi 的原生 TUI、模型认证与调用、工具执行、skills、会话、压缩、扩展和 MCP；Siftory 只提供独立配置目录、通用默认身份与启动入口。
+对话、执行、恢复和 todo 状态全部由 durable 引擎持久化在本地 SQLite；Siftory 提供 CLI/TUI、独立配置目录、资源装配和扩展。复用 Pi 的模型认证、Skills 发现和终端组件。
 
 ## 开始使用
 
-需要 **Node.js ≥22.19.0**；使用 Bun 1.4.2 安装依赖。
+需要 **Node.js ≥22.19.0**（内置 SQLite）；使用 Bun 1.4.2 安装依赖。
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts
@@ -15,20 +15,14 @@ bun run start
 
 进入后用 `/login` 配置供应商，`/model` 选择模型。也可使用供应商环境变量，如 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`。
 
-Siftory 的工作目录是启动时所在目录。要在任意目录使用命令：
+不指定参数时，工具工作目录是 `~/.siftory/workspace`（不再是启动时所在目录）：
 
 ```sh
-bun link
-cd /path/to/project
-bunx siftory
-```
-
-`bun link` 把包注册到 Bun 全局目录，`bunx` 从那里解析命令，不依赖 `~/.bun/bin` 是否在 PATH。若它已在 PATH，也可以直接运行 `siftory`。
-
-不链接也可以直接运行：
-
-```sh
-node /path/to/Siftory/src/cli.mjs
+siftory                                  # home = ~/.siftory，工作目录 = ~/.siftory/workspace
+siftory --home /path/to/dev-siftory      # 独立开发 home
+siftory --cwd /path/to/project           # 配置凭证归 home，工具操作 project
+siftory --print "总结这个目录"            # 打印模式：回答一次即退出（无 TTY 时默认）
+siftory --continue                       # 继续最近一次会话
 ```
 
 ## 基础能力
@@ -36,84 +30,60 @@ node /path/to/Siftory/src/cli.mjs
 | 能力 | 使用方式 |
 |---|---|
 | 对话和流式输出 | 直接输入；Esc 停止当前执行 |
-| 模型与思考级别 | `/model`、`/settings`、`--model provider/model:high` |
-| 会话 | `/new`、`/resume`、`--continue`；默认保存 JSONL |
-| 分支 | `/tree`、`/fork` |
-| 上下文压缩 | 自动压缩或 `/compact` |
-| 基础工具 | 默认 read、bash、edit、write；grep、find、ls 等可按需启用 |
+| 模型与思考级别 | `/model`、`/thinking`、`--model provider/model:high` |
+| 会话 | `/new`（新会话组）、`/resume`（切换）、`--continue`、`--session <id>`；按会话组存 SQLite |
+| 分支 | `/fork` 在最新条目处分叉，继承分叉点的 todo 列表 |
+| 上下文压缩 | 自动压缩或 `/compact`；`/reset` 开新上下文 |
+| 恢复 | 崩溃或退出后重开同一存储，未完成的工作从中断点继续 |
+| 基础工具 | read、write、edit、bash |
 | Skills | 标准 SKILL.md 发现、描述索引、按需读取；`/skill:name` 显式加载 |
-| 扩展 | Pi 原生工具、命令、事件、UI、模型供应商接口 |
-| MCP | Pi 内置 MCP 支持；按配置连接服务器 |
+| 提示词模板 | `~/.siftory/agent/prompts/<name>.md`，`/name 参数` 展开 `$ARGUMENTS` |
+| Todo | 模型用 `todo` 工具维护任务清单；面板实时显示；`/todos` 查看 |
+| codemode / tool-search | durable 原生实现，默认装配 |
+| 扩展 | durable 原生扩展（见 [扩展指南](docs/extensions.md)） |
 
-所有 Pi CLI 参数原样传递，不维护第二套参数或会话实现：
+## 恢复承诺
 
-```sh
-siftory --help
-siftory --continue
-siftory --resume
-siftory --model anthropic/claude-sonnet-4-6
-siftory --tools read,grep,find,ls --print "分析当前目录"
-siftory --mode json "解释这个项目"
-siftory --tui-mode regular
-```
+- 输入、任务、状态和输出先提交存储，再显示；重开后可恢复未完成的工作。
+- 同一会话存储一次只允许一个进程打开；崩溃残留的锁由存活的进程安全接管。
+- 工具默认不自动重跑；已验证可安全重跑的工具（如 todo）崩溃后自动恢复且不重复生效。
+- 外部效果（bash、发信、支付）与本地提交不是同一个事务，不承诺恰好执行一次。
+- 退出即暂停、重开恢复；不提供后台常驻服务。
+- durable 仍是 Experimental：升级版本后须验证旧存储可恢复。
 
-`--help`、`--version` 和部分内置文案仍显示上游 Pi 名称/版本，未 fork 上游。非 TTY 输入或输出默认使用 print 模式。
-
-## 配置与扩展
-
-默认用户目录是 **`~/.siftory/agent/`**，不会复用或迁移旧 SQLite 数据，也不默认使用 `~/.pi/agent/` 的认证和配置。
-
-设置 `SIFTORY_AGENT_DIR` 可选择其他用户目录。启动入口会将它交给 Pi 的 `PI_CODING_AGENT_DIR`；不使用继承的 `PI_CODING_AGENT_DIR` 作为 Siftory 默认目录。
+## 配置与目录
 
 ```text
-~/.siftory/agent/
-├─ auth.json              密钥 / OAuth
-├─ models.json            自定义供应商与模型
-├─ settings.json          偏好、资源路径、扩展包
-├─ sessions/              按工作目录分组的会话
-├─ extensions/            .ts / .js 扩展
-├─ skills/<name>/SKILL.md  标准技能
-├─ prompts/               Markdown 命令模板
-└─ themes/                主题
+~/.siftory/
+├─ agent/
+│  ├─ auth.json              密钥 / OAuth
+│  ├─ models.json            自定义供应商与模型
+│  ├─ skills/<name>/SKILL.md
+│  ├─ prompts/<name>.md
+│  └─ extensions/            durable 原生扩展（预留）
+├─ sessions/<session-id>/
+│  ├─ state.sqlite           durable 数据库（WAL）
+│  └─ owner.lock             进程独占记录
+├─ logs/
+├─ tmp/
+└─ workspace/                默认工具工作目录
 ```
 
-目录由使用相应功能时创建，不预建空目录。项目仍使用 Pi 标准 `.pi/` 配置与资源目录；项目代码加载保留 Pi 的信任机制。标准 `~/.agents/skills/`、项目 `.agents/skills/` 也可被发现，独立配置目录不是资源沙箱。
+`--home`、`--cwd` 相对路径按启动时所在目录解析。多个 home 之间不共享会话或凭证，也不自动继承个人 `~/.pi` 配置。备份会话请在关闭程序后复制整个 `sessions/<id>/` 目录，或使用 SQLite 一致性备份；运行中只复制主文件会丢 WAL 内容。
 
-安装社区包：
-
-```sh
-siftory install npm:@scope/pi-package
-siftory install git:github.com/owner/pi-package@v1
-siftory list
-siftory config
-siftory update --extensions
-```
-
-直接试用资源：
+## 开发
 
 ```sh
-siftory --extension /path/to/extension.ts
-siftory --skill /path/to/skill
-```
-
-Siftory 的薄内建扩展名为 `builtin:siftory`，可以通过 `--no-extensions` 或 Pi 配置禁用。`SYSTEM.md`、`--system-prompt` 等显式提示词优先于 Siftory 默认身份。
-
-扩展开发示例与兼容边界见 [扩展指南](docs/extensions.md)，实现边界见 [架构](docs/architecture.md)。
-
-升级依赖使用包管理器并运行检查；`siftory update` 是上游 Pi 自更新命令，不负责更新本仓库的锁定依赖。
-
-## 验证
-
-```sh
+bun run start --home /path/to/dev-siftory
 bun run check
 bun run test
 ```
 
-测试使用官方 faux 模型，不需要密钥，不发送真实模型请求。覆盖标准资源发现、技能与模板展开、扩展工具执行、文件工具、流式输出、取消、模型选择、会话重开/分叉，以及真实 CLI 启动、配置隔离和 HTML 导出。
+测试使用官方 faux 模型，不需要密钥，不发送真实模型请求。覆盖：路径与锁、print 模式、流式与工具执行、会话重开、崩溃后恢复（bash 工具不重复执行）、todo 规则与回执重放、fork 隔离、Skills/项目上下文装载和真实 CLI 启动。
 
 ## 边界
 
-- 保存会话不等于崩溃后自动续跑；重新打开后手动继续。
-- 关闭终端不会留下后台 Agent 服务。
-- 第三方扩展运行在进程权限下，需审查来源、版本与依赖；没有额外沙箱或审批层。
-- 旧桌面、HTTP/WS、durable、选题/产物库及其构建链已删除；旧私有数据未迁移、未主动清除，新程序不会读取它们。
+- MCP、`/tree` 会话树浏览、HTML 导出、旧 Pi 插件尚未接入 durable 宿主；需要时按 [设计文档](docs/durable-native-design.md) 第四阶段逐项补齐。
+- 保存会话不等于终端关闭后继续运行；重新打开后恢复。
+- 第三方扩展运行在进程权限下，没有额外沙箱或审批层。
+- 旧 Pi JSONL 会话留在原处，不自动转换；如需迁移另行设计显式导入。

@@ -1,0 +1,16 @@
+{
+  "name": "@siftory/todo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Durable-native todo extension for Siftory, ported from @juicesharp/rpiv-todo@2.13.8 (MIT)",
+  "type": "module",
+  "main": "index.mjs",
+  "license": "MIT",
+  "dependencies": {
+    "typebox": "^1.3.27"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-durable": "1.3.0",
+    "@earendil-works/pi-ai": "1.3.0"
+  }
+}
