@@ -132,19 +132,35 @@ test("tool: end-to-end through the model, panel, fork inheritance, and fresh con
 	assert.equal(await harness.snapshot(TodoDoc, fresh.id, BACKGROUND_CONTEXT), undefined);
 });
 
-test("receipts stay bounded", async (t) => {
+test("receipts for unsettled or legacy calls are not evicted at the retention target", async (t) => {
 	const { harness } = await todoHarness(t, []);
 	const root = await harness.root(BACKGROUND_CONTEXT, { agent: { model: { provider: "faux", modelId: "faux-1" } } });
 	for (let i = 0; i < 80; i++) {
 		await mutateTodoInCommit(harness, root.id, `call-${i}`, "create", { subject: `task ${i}` });
 	}
 	const state = await harness.snapshot(TodoDoc, root.id, BACKGROUND_CONTEXT);
-	assert.ok(Object.keys(state.receipts).length <= 64, `receipts: ${Object.keys(state.receipts).length}`);
+	assert.equal(Object.keys(state.receipts).length, 80);
 	assert.equal(state.tasks.length, 80);
-	// The evicted oldest receipt re-executes as a fresh create: bounded memory, no false replay.
+	// No terminal task evidence: the oldest create can still replay after a crash.
 	const again = await mutateTodoInCommit(harness, root.id, "call-0", "create", { subject: "task 0" });
-	assert.equal(again.replayed, false);
+	assert.equal(again.replayed, true);
+	assert.equal(again.state.tasks.length, 80);
 	assert.equal(again.op.kind, "create");
+});
+
+test("completed durable tool tasks allow old receipts to be collected", async (t) => {
+	const responses = Array.from({ length: 70 }, (_, i) => fauxAssistantMessage(
+		fauxToolCall("todo", { action: "create", subject: `task ${i}` }), { stopReason: "toolUse" },
+	));
+	responses.push(fauxAssistantMessage("done"));
+	const { harness } = await todoHarness(t, responses);
+	const root = await harness.root(BACKGROUND_CONTEXT, { agent: { model: { provider: "faux", modelId: "faux-1" } } });
+	harness.resume();
+	const result = await (await root.submit({ type: "input", content: "create tasks" }, BACKGROUND_CONTEXT)).wait(BACKGROUND_CONTEXT);
+	assert.equal(result.status, "done");
+	const state = await harness.snapshot(TodoDoc, root.id, BACKGROUND_CONTEXT);
+	assert.equal(state.tasks.length, 70);
+	assert.equal(Object.keys(state.receipts).length, 64);
 });
 
 test("view: /todos groups by status with counts, indent, and block refs", () => {

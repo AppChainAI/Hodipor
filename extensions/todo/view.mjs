@@ -4,7 +4,7 @@
 
 import { deriveBlocks, selectTasksByStatus, selectTodoCounts } from "./reducer.mjs";
 
-function sanitizeTerminalText(text) {
+export function sanitizeTerminalText(text) {
 	// Control characters have no business in a terminal label.
 	return String(text).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
 }

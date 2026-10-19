@@ -8,6 +8,17 @@ import test from "node:test";
 
 const cli = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
 
+test("real acceptance helper requires a separate home before loading credentials", () => {
+	const helper = fileURLToPath(new URL("./helper-real-cli.mjs", import.meta.url));
+	const home = join(tmpdir(), "siftory-no-such-auth-source");
+	for (const args of [[join(home, "agent")], [join(home, "agent"), "--home", home]]) {
+		const result = spawnSync(process.execPath, [helper, ...args], { encoding: "utf8", timeout: 20000 });
+		assert.ifError(result.error);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /requires an independent --home/);
+	}
+});
+
 test("launcher: help, version, and unknown-option handling", async (t) => {
 	const root = await mkdtemp(join(tmpdir(), "siftory-cli-"));
 	t.after(() => rm(root, { recursive: true, force: true }));
@@ -29,6 +40,9 @@ test("launcher: help, version, and unknown-option handling", async (t) => {
 	const bad = run(["--nope"]);
 	assert.equal(bad.status, 2);
 	assert.match(bad.stderr, /unknown option/);
+	const missing = run(["--home", "--print"]);
+	assert.equal(missing.status, 2);
+	assert.match(missing.stderr, /--home requires a value/);
 	// No model configured and none available: a clean failure, not a crash. Strip credentials
 	// so a developer's own env keys cannot make this machine-dependent.
 	const sterileEnv = Object.fromEntries(

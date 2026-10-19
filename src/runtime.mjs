@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { validateSessionId } from "./home.mjs";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Harness, createRegistry, defineExtension, section } from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
@@ -37,6 +38,7 @@ export function createSiftoryRegistry(personaOptions = {}) {
 
 /** @param {string} sessionsDir @param {string} sessionId */
 export function sessionStoragePath(sessionsDir, sessionId) {
+	validateSessionId(sessionId);
 	return join(sessionsDir, sessionId, "state.sqlite");
 }
 
@@ -52,11 +54,16 @@ export async function openRuntime({ sessionStoragePath: path, models, registry, 
 	const storage = await openNodeSqliteStorage(path);
 	// shortcut: durable hands the conversation's agent cwd back into env.exec; NodeExecutionEnv re-joins relative cwd, so hosts must only ever set absolute cwd.
 	/** @param {import("@earendil-works/pi-durable").EnvTarget} target */
-	const env = (target) => new NodeExecutionEnv({ cwd: target.cwd ?? process.cwd() });
-	const harness = await Harness.open(
-		storage,
-		{ models, registry, env, ...(conversationCreated ? { conversationCreated } : {}), ...(onReport ? { onReport } : {}) },
-		RUN_CONTEXT,
-	);
-	return { harness, release: () => storage.close(RUN_CONTEXT) };
+	const env = (target) => new NodeExecutionEnv({ cwd: resolve(target.cwd ?? process.cwd()) });
+	try {
+		const harness = await Harness.open(
+			storage,
+			{ models, registry, env, ...(conversationCreated ? { conversationCreated } : {}), ...(onReport ? { onReport } : {}) },
+			RUN_CONTEXT,
+		);
+		return { harness, release: () => storage.close(RUN_CONTEXT) };
+	} catch (error) {
+		await storage.close(RUN_CONTEXT);
+		throw error;
+	}
 }

@@ -16,10 +16,14 @@ const responses = script.map((step) => {
 	throw new Error(`bad script step: ${JSON.stringify(step)}`);
 });
 
-const faux = fauxProvider({ models: [{ id: "faux-1" }] });
+const faux = fauxProvider({ models: [{ id: "faux-1", reasoning: true }] });
 faux.setResponses(responses);
 const models = createModels();
 models.setProvider(faux.provider);
+// The public snapshot/refresh surface the native model menu consumes.
+models.getAvailableSnapshot = () => models.getModels("faux");
+models.refresh = async () => ({ aborted: false, errors: new Map() });
+models.getError = () => undefined;
 
 const code = await main(argv, { models });
 process.exit(code ?? 0);

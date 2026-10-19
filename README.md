@@ -29,7 +29,8 @@ siftory --continue                       # 继续最近一次会话
 
 | 能力 | 使用方式 |
 |---|---|
-| 快捷键 | Esc 停止；Ctrl+D 退出（空输入框）；Ctrl+T 查看 todo |
+| 快捷键 | Esc 停止；Ctrl+C 退出；Ctrl+D 退出（空输入框）；Ctrl+T 折叠思考 |
+| 主题 | `/theme` 选择当前 home 的主题，默认随终端配色 |
 | 模型与思考级别 | `/model`、`/thinking`、`--model provider/model:high` |
 | 会话 | `/new`（新会话组）、`/resume`（切换）、`--continue`、`--session <id>`；按会话组存 SQLite |
 | 分支 | `/fork` 在最新条目处分叉，继承分叉点的 todo 列表 |
@@ -38,7 +39,7 @@ siftory --continue                       # 继续最近一次会话
 | 基础工具 | read、write、edit、bash |
 | Skills | 标准 SKILL.md 发现、描述索引、按需读取；`/skill:name` 显式加载 |
 | 提示词模板 | `~/.siftory/agent/prompts/<name>.md`，`/name 参数` 展开 `$ARGUMENTS` |
-| Todo | 模型用 `todo` 工具维护任务清单；面板实时显示；`/todos` 或 Ctrl+T 查看分组列表 |
+| Todo | 模型用 `todo` 工具维护任务清单；面板实时显示；Ctrl+Shift+T 折叠；Ctrl+O 展开全部任务；`/todos` 查看分组列表 |
 | codemode / tool-search | durable 原生实现，默认装配 |
 | 扩展 | durable 原生扩展（见 [扩展指南](docs/extensions.md)） |
 

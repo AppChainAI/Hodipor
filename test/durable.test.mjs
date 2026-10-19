@@ -41,9 +41,14 @@ test("home resolution: defaults, explicit --home/--cwd, relative paths anchor to
 test("session lock: second open of live storage is refused, stale lock is taken over", async (t) => {
 	const home = await tempHome(t);
 	const dir = join(home, "sessions", "s1");
-	const release = await acquireSessionLock(dir, { pid: -1 }); // -1: never alive
+	await mkdir(dir, { recursive: true });
+	await writeFile(join(dir, "owner.lock"), JSON.stringify({ pid: 2147483647 }));
+	const release = await acquireSessionLock(dir);
 	release();
-	const again = await acquireSessionLock(dir, { pid: -1 });
+	release(); // Releasing twice cannot remove a subsequent owner's lock.
+	const again = await acquireSessionLock(dir);
+	release();
+	await assert.rejects(() => acquireSessionLock(dir), /owned by pid/);
 	again();
 
 	const held = await acquireSessionLock(dir, { pid: process.pid });
@@ -70,6 +75,11 @@ test("print mode answers, runs file tools in the workspace, and streams text", a
 	assert.match(out, /● write\(note\.txt\)/);
 	assert.match(out, /written and verified/);
 	assert.equal(await readFile(join(home, "workspace", "note.txt"), "utf8"), "hello durable");
+	// Initial dependency setup may install its own handler; subsequent print runs must not add more.
+	const listeners = process.listenerCount("SIGINT");
+	faux.setResponses([fauxAssistantMessage("second check")]);
+	await main(["--print", "check again", "--home", home, "--model", "faux/faux-1"], { models });
+	assert.equal(process.listenerCount("SIGINT"), listeners);
 });
 
 test("print mode exits non-zero on unanswered input", async (t) => {

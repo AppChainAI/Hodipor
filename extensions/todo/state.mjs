@@ -17,7 +17,7 @@ export const TodoDoc = defineDoc({
 	fork: "asOf",
 });
 
-/** Receipts cap: rerun dedup memory stays bounded (insertion-ordered keys). */
+/** Retention target; unsettled calls must never be evicted merely to meet it. */
 const MAX_RECEIPTS = 64;
 
 export function stripReceipts(state) {
@@ -31,7 +31,7 @@ export function stripReceipts(state) {
  * otherwise run the reducer, write the new state and the receipt atomically.
  * Returns the reducer outcome plus the post-state for formatting.
  */
-export async function mutateTodo(tx, conversationId, callId, action, params) {
+export async function mutateTodo(tx, conversationId, callId, action, params, taskId) {
 	const doc = await tx.doc(TodoDoc, conversationId);
 	const receipt = doc.receipts?.[callId];
 	if (receipt) {
@@ -45,9 +45,17 @@ export async function mutateTodo(tx, conversationId, callId, action, params) {
 		doc.tasks = result.state.tasks;
 		doc.nextId = result.state.nextId;
 		const receipts = { ...(doc.receipts ?? {}) };
-		receipts[callId] = { op: result.op };
-		const keys = Object.keys(receipts);
-		if (keys.length > MAX_RECEIPTS) for (const key of keys.slice(0, keys.length - MAX_RECEIPTS)) delete receipts[key];
+		receipts[callId] = { op: result.op, ...(taskId ? { taskId } : {}) };
+		let excess = Object.keys(receipts).length - MAX_RECEIPTS;
+		for (const key of Object.keys(receipts)) {
+			if (excess <= 0) break;
+			const receiptTask = receipts[key].taskId;
+			const task = receiptTask ? await tx.task(receiptTask) : undefined;
+			if (task?.state.status === "terminal") {
+				delete receipts[key];
+				excess--;
+			}
+		}
 		doc.receipts = receipts;
 	}
 	return { op: clone(result.op), state: clone(result.state), replayed: false };

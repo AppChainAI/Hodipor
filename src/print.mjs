@@ -23,7 +23,7 @@ export async function runPrint({ harness, root, prompt, signal }) {
 		if (signal.aborted) onInterrupt();
 		else signal.addEventListener("abort", onInterrupt, { once: true });
 	} else {
-		process.on("SIGINT", () => void onInterrupt());
+		process.on("SIGINT", onInterrupt);
 	}
 
 	const settled = await new Promise((resolve) => {
@@ -40,6 +40,8 @@ export async function runPrint({ harness, root, prompt, signal }) {
 		});
 	});
 
+	if (signal) signal.removeEventListener("abort", onInterrupt);
+	else process.off("SIGINT", onInterrupt);
 	if (inText) process.stdout.write("\n");
 	await events.stop().catch(() => {});
 	if (settled.status === "unanswered") {

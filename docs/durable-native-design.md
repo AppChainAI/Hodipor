@@ -1,8 +1,8 @@
 # Siftory durable 原生产品设计
 
-更新日期：2026-10-17。
+更新日期：2026-10-19。
 
-**状态：已实施（第一至三阶段全部落地，第四阶段部分接入）。** 当前程序为 durable 原生实现，实际行为见 [当前架构](architecture.md)。本文保留目标设计与取舍记录；尚未接入项（MCP、/tree、HTML 导出、旧 Pi 插件、/reload）见架构文末清单。
+**状态：核心架构已实施，第一至三阶段的验收尚未全部闭环，第四阶段部分接入。** 当前程序为 durable 原生实现，实际行为见 [当前架构](architecture.md)，本次核查与修复见 [设计审查](durable-native-review.md)。本文保留目标设计与取舍记录，不以“有实现”代替真实供应商、OAuth、跨平台和升级恢复验收。
 
 ## 1. 目标与范围
 
@@ -103,7 +103,7 @@ Siftory/
 - **Siftory home**：配置、凭证和运行数据的独立根目录，默认 `~/.siftory`。
 - **Agent workspace**：默认文件工作目录，位于 `<home>/workspace/`，不是应用状态根目录。
 
-采用后续讨论中的建议命名：`--home` 指定应用根目录，`--cwd` 指定工具工作目录；默认工作子目录使用 `workspace/`，不再使用早期草案中的 `work/`。早期将根目录称为 `--workspace` 的草案不再与此并列；具体参数落地仍需随 CLI 实现验收。
+`--home` 指定应用根目录，`--cwd` 指定工具工作目录；默认工作子目录使用 `workspace/`，不再使用早期草案中的 `work/`。早期将根目录称为 `--workspace` 的草案不再与此并列；上述参数已实现。
 
 ```sh
 siftory
@@ -150,7 +150,7 @@ siftory --home /path/to/dev-siftory --cwd /path/to/project
 - 新会话持久化解析后的 cwd；恢复默认沿用原 cwd，显式覆盖作为会话配置变更处理。
 - 模块使用显式配置路径，不修改全局 HOME；目录按需创建，凭证和私密数据使用严格权限。
 - 多个 home 不自动共享会话或凭证，不自动继承个人 Pi 配置，不自动复制密钥。
-- 保留 `agent/` 配置布局以减少迁移；当前 `SIFTORY_AGENT_DIR` 的兼容或退出策略须在实现时明确，不能静默读取错误凭证。
+- 保留 `agent/` 配置布局以减少迁移；`SIFTORY_AGENT_DIR` 已退出。若只设置该变量，入口报错要求改用 `--home`；显式 `--home` 优先，不静默改读默认凭证。
 - 宿主配置、数据、临时产物和日志尽量集中到 home。共享 Skills 等外部发现路径必须明确；严格开发隔离时显式限制发现范围。
 - home/workspace 不是访问沙箱，工具仍可能访问外部路径；第三方工具、包管理器和供应商可能另有缓存。
 - home 含凭证和私密会话，不应默认提交到项目仓库。
@@ -164,7 +164,7 @@ bun run start --home /Volumes/UWorks/Projects/Test/siftory-dev
 bun run start --home /Volumes/UWorks/Projects/Test/siftory-dev --cwd /path/to/project
 ```
 
-以上命令待新 CLI 实现后生效。自动化测试必须使用临时 home，不能默认打开真实 `~/.siftory`。
+以上命令已生效。自动化测试必须使用临时 home，不能默认打开真实 `~/.siftory`。
 
 ## 6. SQLite 与会话生命周期
 
@@ -286,4 +286,4 @@ Pi 接口核对基于本地 1.3.0；上游阅读基线为 main SHA `8efd314fa3d3
 - [Hermes Configuration](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/configuration.md)：配置集中在 Hermes home；CLI 默认 cwd 是启动目录，Siftory 不采用这个默认值。
 - [Hermes Session Storage](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/session-storage.md)：home 下的 `state.db` 与单写 gateway；不能据此认为多个 durable CLI 可共享同一存储。
 
-上述接口已阅读核对；模型接线、组件复用和故障恢复尚未通过迁移原型实测。
+上述接口是设计时核对基线。当前 faux 模型、SQLite 崩溃恢复、todo 提交后崩溃重放、TUI 投影与终端补全/切换已有实测；真实供应商、完整 OAuth、跨平台及旧版本存储升级仍待验收，详见设计审查。

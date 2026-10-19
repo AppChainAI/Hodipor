@@ -1,33 +1,36 @@
 import { join } from "node:path";
 import process from "node:process";
-import { CustomEditor, getSelectListTheme, initTheme } from "@earendil-works/pi-coding-agent";
+import { CustomEditor, getSelectListTheme, initTheme, rawKeyHint } from "@earendil-works/pi-coding-agent";
 import {
-	CombinedAutocompleteProvider,
 	Container,
 	KeybindingsManager,
+	Key,
+	matchesKey,
 	Text,
 	TUI_KEYBINDINGS,
+	getKeybindings,
+	setKeybindings,
 	TuiMainScreen,
 	ProcessTerminal,
 } from "@earendil-works/pi-tui";
 import { attachTranscript } from "./transcript.mjs";
-import { commandList, runCommand } from "./commands.mjs";
+import { createEditorSlot } from "./editor-slot.mjs";
+import { activeTheme, createThemeController } from "./theme.mjs";
+import { createCommandAutocomplete, handleInput } from "./commands.mjs";
 import { RUN_CONTEXT } from "../runtime.mjs";
-import { nextSessionId, openSession } from "../session.mjs";
-import { TodoDoc, formatTodoSummary, renderTodoPanel } from "../../extensions/todo/index.mjs";
+import { nextSessionId } from "../session.mjs";
+import { TodoDoc, formatTodoSummary } from "../../extensions/todo/index.mjs";
+import { TodoPanel } from "../../extensions/todo/ui.mjs";
+import { RunStatus } from "./run-status.mjs";
+import { SiftoryFooter, contextDisplayStats } from "./footer.mjs";
+import { ThemedText } from "./pi-display.mjs";
 
 /** App-level defaults CustomEditor matches beyond the TUI's own editor keys. */
 const APP_KEYS = {
 	"app.interrupt": { defaultKeys: "escape", description: "Cancel or abort" },
-	"app.clear": { defaultKeys: "ctrl+c", description: "Clear editor" },
 	"app.exit": { defaultKeys: "ctrl+d", description: "Exit when editor is empty" },
+	"app.tools.expand": { defaultKeys: "ctrl+o", description: "Expand or collapse tool details" },
 };
-
-/** @returns {{ fg?: (token: string, text: string) => string }} */
-function activeTheme() {
-	const globals = /** @type {Record<symbol, { fg?: (token: string, text: string) => string }>} */ (globalThis);
-	return globals[Symbol.for("@earendil-works/pi-coding-agent:theme")] ?? {};
-}
 
 /**
  * @typedef {Object} TuiArgs
@@ -37,51 +40,58 @@ function activeTheme() {
  * @property {{ home: string; cwd: string; agentDir: string; sessionsDir: string }} TuiArgs.paths
  * @property {string} TuiArgs.sessionId
  * @property {{ print?: boolean; model?: string; cwd?: string; prompt?: string }} TuiArgs.options
- * @property {() => void} TuiArgs.releaseLock
  */
 
-/** @typedef {{ model?: { provider: string; modelId: string }; thinkingLevel?: string }} AgentCache */
+/** @typedef {{ model?: { provider: string; modelId: string }; thinkingLevel?: import("@earendil-works/pi-ai").ModelThinkingLevel; cwd?: string }} AgentCache */
 
 /**
  * The Siftory TUI: layout, focus, input, and command assembly. Conversation and
  * todo state live in durable; this function holds display state only.
  * @param {TuiArgs} args
  */
-export async function runTui({ harness, root, models, paths, sessionId, options, releaseLock }) {
+export async function runTui({ harness, root, models, paths, sessionId, options }) {
 	initTheme();
 	const keybindings = new KeybindingsManager(
-		/** @type {import("@earendil-works/pi-tui").KeybindingDefinitions} */ ({ ...TUI_KEYBINDINGS, ...APP_KEYS }),
+		/** @type {import("@earendil-works/pi-tui").KeybindingDefinitions} */ ({ ...TUI_KEYBINDINGS, ...APP_KEYS, "tui.select.cancel": { defaultKeys: "escape", description: "Cancel selection" } }),
 	);
 
+	const previousKeybindings = getKeybindings();
 	const terminal = new ProcessTerminal();
 	const tui = new TuiMainScreen(terminal, false, join(paths.home, "logs"));
 
+	const header = new ThemedText(() => {
+		const theme = activeTheme();
+		const hints = toolsExpanded
+			? [["esc", "to interrupt"], ["ctrl+c", "to exit"], ["ctrl+d", "to exit (empty editor)"], ["/", "for commands"], ["ctrl+o", "to expand tools and todos"], ["ctrl+t", "to expand thinking"], ["ctrl+shift+t", "to collapse todos"]].map(([key, description]) => rawKeyHint(key, description)).join("\n")
+			: [["esc", "interrupt"], ["ctrl+c", "exit"], ["/", "commands"], ["ctrl+o", "more"]].map(([key, description]) => rawKeyHint(key, description)).join(theme.fg("muted", " · "));
+		return `${theme.fg("accent", theme.bold("Siftory"))}\n${hints}`;
+	}, 1, 1);
 	const transcriptContainer = new Container();
 	const statusContainer = new Container();
 	const widgetContainer = new Container();
 	const editorContainer = new Container();
 	const footerContainer = new Container();
+	const workingContainer = new Container();
 
 	const statusLine = new Text("", 1, 0);
 	statusContainer.addChild(statusLine);
-	const footer = new Text("", 1, 0);
+	const footer = new SiftoryFooter(() => {
+		const model = state.agent.model;
+		const definition = model ? models.getModel(model.provider, model.modelId) : undefined;
+		return { cwd: state.agent.cwd ?? paths.cwd, sessionId, usage: state.usage, thinkingLevel: state.agent.thinkingLevel,
+			...contextStats, model: model ? { id: model.modelId, provider: model.provider, reasoning: definition?.reasoning, contextWindow: definition?.contextWindow } : undefined };
+	});
 	footerContainer.addChild(footer);
-
-	const theme = activeTheme();
 	const editor = new CustomEditor(
 		tui,
-		{ borderColor: (text) => theme.fg?.("borderMuted", text) ?? text, selectList: getSelectListTheme() },
+		{ borderColor: (text) => activeTheme().getThinkingBorderColor(state.agent.thinkingLevel ?? "off")(text), selectList: getSelectListTheme() },
 		/** @type {import("@earendil-works/pi-coding-agent").KeybindingsManager} */ (/** @type {unknown} */ (keybindings)),
+		{ embedWorkingStatus: true },
 	);
-	editor.setAutocompleteProvider(
-		new CombinedAutocompleteProvider(
-			commandList().map((c) => ({ name: `/${c.name}`, description: c.description })),
-			paths.cwd,
-		),
-	);
+	editor.setAutocompleteProvider(createCommandAutocomplete(paths.cwd));
 	editorContainer.addChild(editor);
 
-	/** @type {{ current: import("@earendil-works/pi-durable").Conversation; busy: boolean; agent: AgentCache; usage: { models?: Record<string, { totalTokens?: number }> } | undefined; exiting: boolean; restartRequest: { newSession?: boolean; pickSession?: boolean | string } | undefined; overlay: import("@earendil-works/pi-tui").OverlayHandle | undefined }} */
+	/** @type {{ current: import("@earendil-works/pi-durable").Conversation; busy: boolean; agent: AgentCache; usage: import("@earendil-works/pi-durable").UsageState | undefined; exiting: boolean; restartRequest: { newSession?: boolean; pickSession?: boolean | string } | undefined }} */
 	const state = {
 		current: root,
 		busy: false,
@@ -89,16 +99,34 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 		usage: undefined,
 		exiting: false,
 		restartRequest: undefined,
-		overlay: undefined,
 	};
 
+	// The terminal can receive commands before the first transcript frame arrives.
+	state.agent = await root.agent(RUN_CONTEXT);
+	let toolsExpanded = false;
+	let hideThinking = false;
+	/** @type {import("./run-status.mjs").Activity | undefined} */
+	let activity;
+	let contextRead = 0;
+	/** @type {{ contextTokens: number | null; cacheHitRate?: number }} */
+	let contextStats = { contextTokens: null };
+	/** @type {{ message: string; kind?: "error" | "success" | "info" } | undefined} */
+	let notification;
+	const runStatus = new RunStatus(tui, editor, workingContainer);
+	const editorSlot = createEditorSlot(tui, editorContainer, editor, active => runStatus.setEmbedded(active === editor));
 	const app = {
 		harness,
 		models,
 		paths,
+		sessionId,
 		tui,
 		editor,
 		context: RUN_CONTEXT,
+		themes: {
+			names: () => themeController.names(),
+			selection: () => themeController.selection(),
+			set: (/** @type {string} */ name) => themeController.set(name),
+		},
 		/** @returns {import("@earendil-works/pi-durable").Conversation} */
 		conversation: () => state.current,
 		currentModel: () => {
@@ -106,41 +134,21 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 			return model ? /** @type {any} */ (models).getModel?.(model.provider, model.modelId) : undefined;
 		},
 		requestExit: () => {
+			if (state.exiting) return;
 			state.exiting = true;
+			editorSlot.cancel();
 		},
 		/** @param {{ newSession?: boolean; pickSession?: boolean | string }} request */
 		restart: async (request) => {
+			if (typeof request.pickSession === "string") nextSessionId(paths.sessionsDir, request);
 			state.restartRequest = request;
 			state.exiting = true;
 		},
 		/** @param {string} message @param {"error" | "success" | "info"} [kind] */
 		notify: (message, kind) => notify(message, kind),
 		refreshStatus: () => updateFooter(),
-		/** @param {import("@earendil-works/pi-tui").Component} component */
-		swapEditor: (component) => {
-			editorContainer.clear();
-			editorContainer.addChild(component);
-			tui.setFocus(component);
-			tui.requestRender();
-		},
-		restoreEditor: () => {
-			editorContainer.clear();
-			editorContainer.addChild(editor);
-			tui.setFocus(editor);
-			tui.requestRender();
-		},
-		/** @param {import("@earendil-works/pi-tui").Component} component */
-		showOverlay: (component) => {
-			state.overlay = tui.showOverlay(component, { anchor: "center", width: "60%" });
-			tui.setFocus(component);
-			tui.requestRender();
-		},
-		closeOverlay: () => {
-			state.overlay?.hide();
-			state.overlay = undefined;
-			tui.setFocus(editor);
-			tui.requestRender();
-		},
+		swapEditor: editorSlot.show,
+		restoreEditor: editorSlot.restore,
 		/** @param {import("@earendil-works/pi-durable").Conversation} conversation */
 		switchConversation: async (conversation) => {
 			state.current = conversation;
@@ -154,33 +162,52 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 		},
 	};
 
-	const timers = /** @type {{ status?: ReturnType<typeof setTimeout> }} */ ({});
-	/** @type {{ transcript?: { detach(): Promise<unknown> }; todoWatch?: { stop(): Promise<unknown> } }} */
+	const timers = /** @type {{ status?: ReturnType<typeof setTimeout>; footer?: ReturnType<typeof setTimeout> }} */ ({});
+	/** @type {{ transcript?: { detach(): Promise<unknown>; setToolsExpanded(value: boolean): void; setHideThinking(value: boolean): void };  todoWatch?: { stop(): Promise<unknown> } }} */
 	const handles = {};
 
 	/** @param {string} message @param {"error" | "success" | "info"} [kind] */
 	function notify(message, kind) {
-		const t = activeTheme();
-		const color = kind === "error" ? "error" : kind === "success" ? "success" : "muted";
-		statusLine.setText(t.fg ? t.fg(color, message) : message);
+		if (state.exiting) return;
+		notification = { message, kind };
+		paintStatus();
 		if (timers.status) clearTimeout(timers.status);
-		if (kind !== "error") timers.status = setTimeout(() => statusLine.setText(""), 4000);
+		if (kind !== "error") timers.status = setTimeout(() => {
+			notification = undefined;
+			paintStatus();
+			tui.requestRender();
+		}, 4000);
 		tui.requestRender();
 	}
 
+	function paintStatus() {
+		const color = notification?.kind === "error" ? "error" : notification?.kind === "success" ? "success" : "muted";
+		statusLine.setText(notification ? activeTheme().fg(color, notification.message) : "");
+	}
+
 	function updateFooter() {
-		const parts = [];
-		const model = state.agent.model;
-		if (model) parts.push(`${model.provider}/${model.modelId}`);
-		if (state.agent.thinkingLevel) parts.push(String(state.agent.thinkingLevel));
-		parts.push(sessionId);
-		if (state.usage) {
-			const total = Object.values(state.usage.models ?? {}).reduce((sum, usage) => sum + Number(usage.totalTokens ?? 0), 0);
-			if (total > 0) parts.push(`${formatTokens(total)} tok`);
-		}
-		if (state.busy) parts.push("working… esc to abort");
-		footer.setText(parts.join("  ·  "));
+		runStatus.invalidate();
+		footer.invalidate();
 		tui.requestRender();
+	}
+
+	function refreshContextStats() {
+		if (timers.footer) clearTimeout(timers.footer);
+		const sequence = ++contextRead;
+		const conversation = state.current;
+		timers.footer = setTimeout(async () => {
+			try {
+				const context = await conversation.context(RUN_CONTEXT);
+				if (state.exiting || sequence !== contextRead || conversation !== state.current) return;
+				contextStats = contextDisplayStats(context);
+				updateFooter();
+			} catch (error) {
+				if (!state.exiting && sequence === contextRead) {
+					contextStats = { contextTokens: null };
+					notify(`context display: ${String(error)}`, "error");
+				}
+			}
+		}, 0);
 	}
 
 	async function rebindTranscript() {
@@ -192,13 +219,25 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 			conversationId: /** @type {any} */ (state.current.id),
 			container: transcriptContainer,
 			tui,
+			expandedTools: toolsExpanded,
+			hideThinking,
+			getTodos: () => todoPanel.state,
+			onActivityChange: next => { activity = next; runStatus.set(next); },
+			onEvent: event => {
+				if (event.type === "run_start") todoPanel.hideCompletedTasksFromPreviousTurn();
+				if (event.type === "snapshot" || (event.type === "entry_appended" && event.entry.kind === "pi.compaction")) todoPanel.resetCompletedDisplayState();
+				if (["entry_appended", "message_end", "run_end"].includes(event.type)) refreshContextStats();
+			},
 			onBusyChange: (busy) => {
 				state.busy = busy;
+				terminal.setProgress(busy);
+				terminal.setProgramStatus({ state: busy ? "working" : "idle", app: "siftory" });
 				updateFooter();
 			},
 			onSnapshotMeta: (snapshot) => {
 				state.agent = snapshot.agent ?? {};
 				state.usage = snapshot.usage;
+				refreshContextStats();
 				updateFooter();
 			},
 		});
@@ -212,8 +251,7 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 		if (!watch) return;
 		/** @param {{ tasks: { status: string; subject: string; activeForm?: string }[]; nextId: number } | null} value */
 		const paint = (value) => {
-			const lines = value ? renderTodoPanel(value) : [];
-			todoPanel.setText(lines.join("\n"));
+			todoPanel.setState(value ?? { tasks: [] });
 			tui.requestRender();
 		};
 		paint(watch.value);
@@ -222,89 +260,104 @@ export async function runTui({ harness, root, models, paths, sessionId, options,
 		});
 	}
 
-	const todoPanel = new Text("", 1, 0);
+	const todoPanel = new TodoPanel(activeTheme);
 	widgetContainer.addChild(todoPanel);
+	const themeController = createThemeController(tui, {
+		cwd: paths.cwd, agentDir: paths.agentDir,
+		onError: (message) => notify(message, "error"),
+		onChanged: () => { tui.invalidate(); paintStatus(); updateFooter(); },
+	});
 
 	/** Append a read-only text block to the transcript (for /todos and similar). */
 	/** @param {string} text */
 	function appendTranscriptText(text) {
-		transcriptContainer.addChild(new Text(text, 1, 0));
+		transcriptContainer.addChild(new ThemedText(() => activeTheme().fg("text", text), 1, 0));
 		tui.requestRender();
 	}
 
-	editor.onSubmit = async (text) => {
-		const value = text.trim();
-		if (!value) return;
-		if (value.startsWith("/")) {
-			const handled = await runCommand(app, value.slice(1));
-			if (!handled) notify(`unknown command: ${value.split(/\s+/)[0]}`, "error");
-			return;
-		}
-		try {
-			const { expandSkillInvocation, expandPromptTemplate, listSkills } = await import("../resources.mjs");
-			const template = await expandPromptTemplate(paths.agentDir, value);
-			const content = template ?? (await expandSkillInvocation(listSkills({ cwd: paths.cwd, agentDir: paths.agentDir }), value));
-			await state.current.submit({ type: "input", content }, RUN_CONTEXT);
-		} catch (error) {
-			notify(error instanceof Error ? error.message : String(error), "error");
-		}
-	};
+	editor.onSubmit = (text) => handleInput(app, text);
 	editor.onEscape = () => {
-		if (state.busy) state.current.abort(RUN_CONTEXT).catch((error) => notify(String(error), "error"));
+		if (!state.busy) return;
+		const pending = [state.current.abort(RUN_CONTEXT)];
+		if (activity?.kind === "compaction" && activity.taskId !== undefined) pending.push(harness.abortTask(activity.taskId, RUN_CONTEXT).then(() => {}));
+		Promise.all(pending).catch(error => notify(String(error), "error"));
 	};
 	editor.onCtrlD = () => {
 		if (!state.busy && editor.getText() === "") state.exiting = true;
 	};
-	// Todo shortcut: Ctrl+T (or "t" on an empty editor) shows the todo list.
+	// Display-only folds never mutate the committed conversation or todo document.
 	editor.onExtensionShortcut = (data) => {
-		if (data === "\x14" || (data === "t" && editor.getText() === "")) {
-			app.showTodos();
+		if (matchesKey(data, Key.ctrl("o"))) {
+			toolsExpanded = !toolsExpanded;
+			header.invalidate();
+			handles.transcript?.setToolsExpanded(toolsExpanded);
+			todoPanel.setToolsExpanded(toolsExpanded);
+			tui.requestRender(true);
+			return true;
+		}
+		if (matchesKey(data, "ctrl+shift+t")) {
+			todoPanel.toggle();
+			tui.requestRender(true);
+			return true;
+		}
+		if (matchesKey(data, Key.ctrl("t"))) {
+			hideThinking = !hideThinking;
+			handles.transcript?.setHideThinking(hideThinking);
 			return true;
 		}
 		return false;
 	};
-	const onSigint = () => {
-		if (state.busy) state.current.abort(RUN_CONTEXT).catch(() => {});
-		else state.exiting = true;
-	};
+	const onSigint = () => app.requestExit();
+	// Raw-mode Ctrl+C is input, not SIGINT; intercept before any focused dialog.
+	const removeInputListener = tui.addInputListener((data) => {
+		if (state.exiting) return { consume: true };
+		if (!matchesKey(data, Key.ctrl("c"))) return;
+		app.requestExit();
+		return { consume: true };
+	});
 	process.on("SIGINT", onSigint);
 
+	tui.addChild(header);
 	tui.addChild(transcriptContainer);
 	tui.addChild(statusContainer);
 	tui.addChild(widgetContainer);
+	tui.addChild(workingContainer);
 	tui.addChild(editorContainer);
 	tui.addChild(footerContainer);
-	tui.start();
-	tui.setFocus(editor);
-	await rebindTranscript();
-	tui.requestRender();
+	try {
+		setKeybindings(keybindings);
+		tui.start();
+		tui.setFocus(editor);
+		await themeController.start();
+		await rebindTranscript();
+		if (options.prompt?.trim()) void handleInput(app, options.prompt);
+		tui.requestRender();
 
-	await /** @type {Promise<void>} */ (new Promise((resolve) => {
-		const check = setInterval(() => {
-			if (state.exiting) {
-				clearInterval(check);
-				resolve();
-			}
-		}, 100);
-	}));
+		await /** @type {Promise<void>} */ (new Promise((resolve) => {
+			const check = setInterval(() => {
+				if (state.exiting) {
+					clearInterval(check);
+					resolve();
+				}
+			}, 100);
+		}));
 
-	process.off("SIGINT", onSigint);
-	await handles.transcript?.detach();
-	await handles.todoWatch?.stop().catch(() => {});
-	state.overlay?.hide();
-	tui.stop();
-
-	if (state.restartRequest) {
-		const targetId = nextSessionId(paths.sessionsDir, state.restartRequest);
-		releaseLock();
-		return openSession({ home: paths.home, sessionId: targetId, models, options, pickModel: () => Promise.resolve(undefined) });
+	} finally {
+		process.off("SIGINT", onSigint);
+		if (timers.status) clearTimeout(timers.status);
+		if (timers.footer) clearTimeout(timers.footer);
+		contextRead++;
+		await handles.transcript?.detach();
+		await handles.todoWatch?.stop().catch(() => {});
+		editorSlot.dispose();
+		runStatus.dispose();
+		themeController.dispose();
+		await terminal.drainInput(1000);
+		removeInputListener();
+		tui.stop();
+		// Keep the current origin: absolute home can paint behind Warp's pinned command header.
+		if (state.restartRequest) terminal.write("\x1b[2J");
+		setKeybindings(previousKeybindings);
 	}
-	return 0;
-}
-
-/** @param {number} total */
-function formatTokens(total) {
-	if (total >= 1000000) return `${(total / 1000000).toFixed(1)}M`;
-	if (total >= 1000) return `${(total / 1000).toFixed(1)}k`;
-	return String(total);
+	return state.restartRequest ?? 0;
 }

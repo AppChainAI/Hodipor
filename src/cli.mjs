@@ -27,7 +27,7 @@ export function parseCliArgs(argv) {
 /** @param {string[]} argv @param {number} index @param {string} flag */
 function value(argv, index, flag) {
 	const v = argv[index];
-	if (!v) throw new Error(`${flag} requires a value`);
+	if (!v || v.startsWith("-")) throw new Error(`${flag} requires a value`);
 	return v;
 }
 
@@ -73,14 +73,15 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 		return 0;
 	}
 
-	const { resolveHome, pickSession } = await import("./home.mjs");
+	const { resolveHome, pickSession, initHome } = await import("./home.mjs");
 	const { createSiftoryModels, defaultModelRef } = await import("./models.mjs");
 	const { openSession } = await import("./session.mjs");
 
 	const paths = resolveHome(options);
+	initHome(paths);
 	const models = inject.models ?? (await createSiftoryModels({ agentDir: paths.agentDir }));
 	const modelRef = await defaultModelRef(models, options.model);
-	if (!modelRef) {
+	if (!modelRef && (options.print || !process.stdout.isTTY || !process.stdin.isTTY)) {
 		process.stderr.write(
 			"siftory: no model available. Configure a provider (interactive /login) or pass --model provider/model.\n",
 		);
@@ -93,7 +94,7 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 		sessionId,
 		models,
 		options,
-		pickModel: () => Promise.resolve(modelRef.model),
+		pickModel: () => Promise.resolve(modelRef?.model),
 		extraExtensions: inject.extensions ?? [],
 	});
 }

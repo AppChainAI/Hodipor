@@ -21,13 +21,21 @@ export async function createSiftoryModels({ agentDir }) {
  */
 export function resolveModelRef(models, spec) {
 	if (!spec) return undefined;
-	const [provider, rest] = spec.split("/");
-	if (!provider || !rest) throw new Error(`--model expects provider/model, got: ${spec}`);
-	const [modelId, thinkingLevel] = rest.split(":");
+	const slash = spec.indexOf("/");
+	const provider = spec.slice(0, slash);
+	const rest = spec.slice(slash + 1);
+	if (slash < 1 || !rest) throw new Error(`--model expects provider/model, got: ${spec}`);
+	const match = rest.match(/:(off|minimal|low|medium|high|xhigh|max)$/);
+	const thinkingLevel = match?.[1];
+	const modelId = match ? rest.slice(0, match.index) : rest;
+	if (!thinkingLevel && !models.getModel(provider, modelId) && rest.includes(":")) {
+		throw new Error(`unknown model or thinking level: ${spec}`);
+	}
 	const model = models.getModel(provider, modelId);
 	if (!model) throw new Error(`unknown model: ${spec}`);
 	return {
-		model: { provider, modelId, ...(thinkingLevel ? { thinkingLevel } : {}) },
+		model: { provider, modelId },
+		...(thinkingLevel ? { thinkingLevel } : {}),
 		modelName: `${provider}/${modelId}`,
 	};
 }

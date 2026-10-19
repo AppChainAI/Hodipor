@@ -12,6 +12,9 @@ import { isAbsolute, join, resolve } from "node:path";
  * @param {{ home?: string; cwd?: string }} [options]
  */
 export function resolveHome(options = {}) {
+	if (process.env.SIFTORY_AGENT_DIR && !options.home) {
+		throw new Error("SIFTORY_AGENT_DIR is no longer supported; use --home to choose the application root");
+	}
 	const home = options.home ? resolve(options.home) : join(homedir(), ".siftory");
 	const cwd = options.cwd ? resolve(options.cwd) : join(home, "workspace");
 	return { home, cwd, agentDir: join(home, "agent"), sessionsDir: join(home, "sessions") };
@@ -20,7 +23,7 @@ export function resolveHome(options = {}) {
 /** @param {{ home: string; agentDir: string; sessionsDir: string }} paths */
 export function initHome({ home, agentDir, sessionsDir }) {
 	for (const dir of [join(home, "workspace"), agentDir, join(agentDir, "extensions"), sessionsDir, join(home, "logs"), join(home, "tmp")]) {
-		mkdirSync(dir, { recursive: true });
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
 	}
 }
 
@@ -45,35 +48,44 @@ function isPidAlive(pid) {
  * @param {{ pid?: number }} [options]
  */
 export async function acquireSessionLock(sessionDir, { pid = process.pid } = {}) {
-	mkdirSync(sessionDir, { recursive: true });
+	if (!Number.isInteger(pid) || pid <= 0) throw new Error("lock owner PID must be positive");
+	mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
 	const lockPath = join(sessionDir, "owner.lock");
-	const owner = { pid, startedAt: Date.now(), command: process.argv.join(" ") };
-	let fd;
-	try {
-		fd = openSync(lockPath, "wx");
-	} catch (/** @type {any} */ error) {
-		if (error.code !== "EEXIST") throw error;
-		let previous = null;
+	const gate = join(sessionDir, "owner.guard");
+	const owner = JSON.stringify({ pid, startedAt: Date.now() });
+	// Serialize stale takeover as well as creation: unlink + O_EXCL alone races.
+	const guarded = (/** @type {() => void} */ action) => {
 		try {
-			previous = JSON.parse(readFileSync(lockPath, "utf8"));
-		} catch {
-			// Unreadable lock: treat as stale only when its PID is dead or absent.
+			mkdirSync(gate, { mode: 0o700 });
+		} catch (/** @type {any} */ error) {
+			if (error.code !== "EEXIST") throw error;
+			// shortcut: an abandoned guard fails closed; remove it manually only after stopping all owners.
+			throw new Error(`session ownership change in progress: ${gate}; if abandoned, stop all owners before removing it`);
 		}
-		if (previous && Number.isInteger(previous.pid) && isPidAlive(previous.pid)) {
-			throw new Error(
-				`session storage is owned by pid ${previous.pid} (${previous.command ?? "unknown"}); refusing to open it twice`,
-			);
+		try { action(); } finally { rmSync(gate, { recursive: true }); }
+	};
+	guarded(() => {
+		if (existsSync(lockPath)) {
+			let previous;
+			try { previous = JSON.parse(readFileSync(lockPath, "utf8")); } catch {
+				throw new Error(`invalid owner lock: ${lockPath}; refusing unsafe takeover`);
+			}
+			if (!Number.isInteger(previous?.pid) || previous.pid <= 0) {
+				throw new Error(`invalid owner lock: ${lockPath}; refusing unsafe takeover`);
+			}
+			if (isPidAlive(previous.pid)) throw new Error(`session storage is owned by pid ${previous.pid}; refusing to open it twice`);
+			rmSync(lockPath);
 		}
-		rmSync(lockPath, { force: true });
-		fd = openSync(lockPath, "wx");
-	}
-	writeSync(fd, JSON.stringify(owner));
+		const fd = openSync(lockPath, "wx", 0o600);
+		try { writeSync(fd, owner); } finally { closeSync(fd); }
+	});
+	let released = false;
 	return () => {
-		try {
-			closeSync(fd);
-		} finally {
-			rmSync(lockPath, { force: true });
-		}
+		if (released) return;
+		guarded(() => {
+			if (existsSync(lockPath) && readFileSync(lockPath, "utf8") === owner) rmSync(lockPath);
+		});
+		released = true;
 	};
 }
 
@@ -117,6 +129,7 @@ export function newSessionId(now = new Date()) {
 export function pickSession(sessionsDir, { continueLatest = false, sessionId } = {}) {
 	const ids = listSessionIds(sessionsDir);
 	if (sessionId) {
+		validateSessionId(sessionId);
 		// An explicit id opens that storage when its directory exists (it may hold only a lock so far).
 		if (!existsSync(join(sessionsDir, sessionId))) throw new Error(`session not found: ${sessionId}`);
 		return sessionId;
@@ -127,7 +140,13 @@ export function pickSession(sessionsDir, { continueLatest = false, sessionId } =
 
 /** @param {string} sessionsDir @param {string} sessionId */
 export function sessionDir(sessionsDir, sessionId) {
+	validateSessionId(sessionId);
 	return join(sessionsDir, sessionId);
+}
+
+/** @param {string} sessionId */
+export function validateSessionId(sessionId) {
+	if (!/^[a-z0-9-]+$/.test(sessionId)) throw new Error(`invalid session id: ${sessionId}`);
 }
 
 export { isAbsolute };

@@ -16,16 +16,16 @@ export function createResourceSections({ cwd, agentDir }) {
 	const sections = [
 		section(
 			"skills",
-			() => {
-				const { skills } = loadSkills({ cwd, agentDir, skillPaths: [], includeDefaults: true });
+			(input) => {
+				const { skills } = loadSkills({ cwd: input.env?.cwd ?? cwd, agentDir, skillPaths: [], includeDefaults: true });
 				return skills.length > 0 ? formatSkillsForPrompt(skills) : undefined;
 			},
 			{ tag: false },
 		),
 		section(
 			"project-context",
-			() => {
-				const files = loadProjectContextFiles({ cwd, agentDir });
+			(input) => {
+				const files = loadProjectContextFiles({ cwd: input.env?.cwd ?? cwd, agentDir });
 				if (files.length === 0) return undefined;
 				return files.map((file) => `<file path="${file.path}">\n${file.content}\n</file>`).join("\n\n");
 			},

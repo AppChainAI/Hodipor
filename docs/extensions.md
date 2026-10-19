@@ -1,6 +1,6 @@
 # 扩展 Siftory
 
-Siftory 使用 durable 原生扩展接口（`defineExtension` / `defineTool` / `section`），没有通用 Pi 插件兼容层。仓库内 `extensions/todo/` 是完整参考实现。
+Siftory 使用 durable 原生扩展接口（`defineExtension` / `defineTool` / `section`），没有通用 Pi 插件兼容层。仓库内 `extensions/todo/` 是参考实现。
 
 ## Skills
 
@@ -15,7 +15,7 @@ description: 在需要整理输入内容时使用。
 先明确用户要整理的内容与输出格式，再完成任务。
 ```
 
-启动时只索引名称、描述和文件路径，模型按需读全文；`/skill:example` 显式加载。项目可放到 `.pi/skills/` 或标准 `.agents/skills/`（经 Pi 的 `loadSkills` 发现）。
+启动时只索引名称、描述和文件路径，模型按需读全文；`/skill:example` 显式加载。项目技能当前放到 `<cwd>/.pi/skills/`；所用 Pi 1.3.0 `loadSkills` 不会自动扫描 `.agents/skills/`。
 
 ## 提示词模板
 
@@ -56,11 +56,11 @@ export const echo = defineExtension({
 要点：
 
 - 工具结果用 `output`（给模型）、`details`（给 UI）；不要返回 `content`。
-- 会话状态用 `defineDoc` 事务文档，不用模块级内存 store；需要崩溃恢复幂等时在同一事务里保存按 `api.callId` 的调用回执（见 `extensions/todo/state.mjs`）。
+- 会话状态用 `defineDoc` 事务文档，不用模块级内存 store；需要崩溃恢复幂等时在同一事务里保存按 `api.callId` 的调用回执并关联 `api.taskId`；只有确认任务终结后才可回收回执（见 `extensions/todo/state.mjs`）。
 - 需要崩溃后自动重跑才声明 `replay: "safe"`，并以崩溃注入测试证明。
-- UI 面板由宿主挂载：扩展导出纯渲染函数，宿主用 `harness.watchDoc` 订阅已提交状态（见 `src/tui/app.mjs` 的 todo 面板）。
+- UI 面板由宿主挂载：宿主用 `harness.watchDoc` 订阅已提交状态；todo 的独立 UI 入口 `extensions/todo/ui.mjs` 提供工具 renderers 与只读面板，不参与执行/权威状态。
 - 目前扩展在 `src/session.mjs` 装配；`~/.siftory/agent/extensions/` 用户扩展目录尚未实现自动发现。
 
 ## todo 扩展
 
-`extensions/todo/` 移植自 `@juicesharp/rpiv-todo@2.13.8`（MIT）。`todo` 工具维护任务清单（pending → in_progress → completed，支持 blockedBy 依赖），面板实时显示在输入框上方，`/todos` 输出全量列表。任务清单按会话存储，fork 继承分叉点状态，新会话从空列表开始。
+`extensions/todo/` 移植自 `@juicesharp/rpiv-todo@2.13.8`（MIT）。`todo` 工具维护任务清单（pending → in_progress → completed，支持 blockedBy 依赖），面板实时显示在输入框上方，Ctrl+Shift+T 折叠面板，`/todos` 输出全量列表。Ctrl+O 展开工具和完整任务，Ctrl+T 保留给思考折叠。面板保留原版树形布局、依赖编号、12 行内容预算和下一轮隐藏完成项的行为；隐藏/折叠不修改文档。原 rpiv-config/rpiv-i18n 的个人配置未接入，此处使用原版默认值。任务清单按会话存储，fork 继承分叉点状态，新会话从空列表开始。

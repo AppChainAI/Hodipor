@@ -37,7 +37,7 @@ export function createTodoExtension() {
 				replay: "safe",
 				async execute(args, api, context) {
 					const { op, state } = await api.commit(
-						(tx) => mutateTodo(tx, api.conversationId, api.callId, args.action, args),
+						(tx) => mutateTodo(tx, api.conversationId, api.callId, args.action, args, api.taskId),
 						context,
 					);
 					const text = formatContent(op, state);
