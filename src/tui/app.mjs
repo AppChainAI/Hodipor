@@ -16,7 +16,7 @@ import {
 import { attachTranscript } from "./transcript.mjs";
 import { createEditorSlot } from "./editor-slot.mjs";
 import { activeTheme, createThemeController } from "./theme.mjs";
-import { createCommandAutocomplete, handleInput } from "./commands.mjs";
+import { createCommandAutocomplete, handleInput, runCommand } from "./commands.mjs";
 import { RUN_CONTEXT } from "../runtime.mjs";
 import { nextSessionId } from "../session.mjs";
 import { TodoDoc, formatTodoSummary } from "../../extensions/todo/index.mjs";
@@ -330,6 +330,13 @@ export async function runTui({ harness, root, models, paths, sessionId, options 
 		tui.setFocus(editor);
 		await themeController.start();
 		await rebindTranscript();
+		// First run: no model configured and no explicit prompt. Jump straight into
+		// model selection when credentials already exist, else into provider login.
+		if (!state.agent.model && !options.prompt?.trim()) {
+			const available = await models.getAvailable().catch(() => /** @type {readonly unknown[]} */ ([]));
+			notify(available.length > 0 ? "no model selected — pick one to get started" : "set up a provider to get started", "info");
+			void runCommand(app, available.length > 0 ? "model" : "login");
+		}
 		if (options.prompt?.trim()) void handleInput(app, options.prompt);
 		tui.requestRender();
 

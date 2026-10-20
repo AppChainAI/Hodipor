@@ -13,7 +13,7 @@ bun install --frozen-lockfile --ignore-scripts
 bun run start
 ```
 
-进入后用 `/login` 配置供应商，`/model` 选择模型。也可使用供应商环境变量，如 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`。
+进入后若没有可用模型会自动打开供应商登录（带启动参数时不劫持）；之后可随时用 `/login` 配置供应商、`/model` 选择模型。也可使用供应商环境变量，如 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`。
 
 不指定参数时，工具工作目录是 `~/.siftory/workspace`（不再是启动时所在目录）：
 

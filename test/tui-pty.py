@@ -129,6 +129,12 @@ class TuiTests(unittest.TestCase):
         terminal.send(b"\x03")
         terminal.assert_exit()
 
+    def test_first_run_without_credentials_opens_login_picker(self):
+        terminal = self.terminal(real_models=True)
+        terminal.wait_for("Select provider")  # auto-opened, no /login typed
+        terminal.send(b"\x03")
+        terminal.assert_exit()
+
     def test_ctrl_c_exits_thinking_menu(self):
         terminal = self.terminal()
         terminal.send(b"/thinking\r")
