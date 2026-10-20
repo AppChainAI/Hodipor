@@ -1,10 +1,10 @@
-# 扩展 Siftory
+# 扩展 Hodipor
 
-Siftory 使用 durable 原生扩展接口（`defineExtension` / `defineTool` / `section`），没有通用 Pi 插件兼容层。仓库内 `extensions/todo/` 是参考实现。
+Hodipor 使用 durable 原生扩展接口（`defineExtension` / `defineTool` / `section`），没有通用 Pi 插件兼容层。仓库内 `extensions/todo/` 是参考实现。
 
 ## Skills
 
-在 `~/.siftory/agent/skills/example/SKILL.md` 创建：
+在 `~/.hodipor/agent/skills/example/SKILL.md` 创建：
 
 ```markdown
 ---
@@ -19,7 +19,7 @@ description: 在需要整理输入内容时使用。
 
 ## 提示词模板
 
-`~/.siftory/agent/prompts/brief.md`：
+`~/.hodipor/agent/prompts/brief.md`：
 
 ```markdown
 ---
@@ -59,7 +59,7 @@ export const echo = defineExtension({
 - 会话状态用 `defineDoc` 事务文档，不用模块级内存 store；需要崩溃恢复幂等时在同一事务里保存按 `api.callId` 的调用回执并关联 `api.taskId`；只有确认任务终结后才可回收回执（见 `extensions/todo/state.mjs`）。
 - 需要崩溃后自动重跑才声明 `replay: "safe"`，并以崩溃注入测试证明。
 - UI 面板由宿主挂载：宿主用 `harness.watchDoc` 订阅已提交状态；todo 的独立 UI 入口 `extensions/todo/ui.mjs` 提供工具 renderers 与只读面板，不参与执行/权威状态。
-- 目前扩展在 `src/session.mjs` 装配；`~/.siftory/agent/extensions/` 用户扩展目录尚未实现自动发现。
+- 目前扩展在 `src/session.mjs` 装配；`~/.hodipor/agent/extensions/` 用户扩展目录尚未实现自动发现。
 
 ## todo 扩展
 

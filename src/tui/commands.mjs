@@ -61,7 +61,7 @@ export async function handleInput(app, text) {
  * @property {() => Promise<void>} showTodos
  */
 
-/** Slash commands the Siftory host registers (the durable runtime has none of its own). */
+/** Slash commands the Hodipor host registers (the durable runtime has none of its own). */
 export function commandList() {
 	return [
 		{ name: "help", description: "Show commands" },
@@ -76,7 +76,7 @@ export function commandList() {
 		{ name: "compact", description: "Compact the conversation context", argumentHint: "[instructions]" },
 		{ name: "reset", description: "Start a new context, optionally with handoff text", argumentHint: "[handoff]" },
 		{ name: "todos", description: "Show the todo panel" },
-		{ name: "exit", description: "Exit Siftory" },
+		{ name: "exit", description: "Exit Hodipor" },
 	];
 }
 

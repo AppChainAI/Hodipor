@@ -2,7 +2,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { readdirSync, existsSync } from "node:fs";
 import { acquireSessionLock, initHome, resolveHome, sessionDir } from "./home.mjs";
-import { sessionStoragePath, openRuntime, createSiftoryRegistry, RUN_CONTEXT } from "./runtime.mjs";
+import { sessionStoragePath, openRuntime, createHodiporRegistry, RUN_CONTEXT } from "./runtime.mjs";
 import { newSessionId } from "./home.mjs";
 import { createResourceSections } from "./resources.mjs";
 import { createTodoExtension, TodoDoc } from "../extensions/todo/index.mjs";
@@ -49,7 +49,7 @@ async function runSession({ home, sessionId, models, options, pickModel, extraEx
 	/** @type {Awaited<ReturnType<typeof openRuntime>> | undefined} */
 	let runtime;
 	try {
-		const registry = createSiftoryRegistry({
+		const registry = createHodiporRegistry({
 			cwd: paths.cwd,
 			extraSections: createResourceSections({ cwd: paths.cwd, agentDir: paths.agentDir }),
 		});
@@ -65,7 +65,7 @@ async function runSession({ home, sessionId, models, options, pickModel, extraEx
 			conversationCreated: async (tx, conversation) => {
 				await tx.doc(TodoDoc, conversation.id);
 			},
-			onReport: (error) => process.stderr.write(`siftory: ${error instanceof Error ? error.message : String(error)}\n`),
+			onReport: (error) => process.stderr.write(`hodipor: ${error instanceof Error ? error.message : String(error)}\n`),
 		});
 
 		const { harness } = runtime;
@@ -89,7 +89,7 @@ async function runSession({ home, sessionId, models, options, pickModel, extraEx
 			const { runPrint } = await import("./print.mjs");
 			const prompt = options?.prompt ?? (await readStdin());
 			if (!prompt || !prompt.trim()) {
-				process.stderr.write("siftory: empty prompt\n");
+				process.stderr.write("hodipor: empty prompt\n");
 				return 1;
 			} else {
 				return await runPrint({ harness, root, prompt });

@@ -31,13 +31,13 @@ function value(argv, index, flag) {
 	return v;
 }
 
-const USAGE = `Siftory — a general-purpose, durable-native terminal agent.
+const USAGE = `Hodipor — a general-purpose, durable-native terminal agent.
 
 Usage:
-  siftory [prompt] [options]
+  hodipor [prompt] [options]
 
 Options:
-  --home <dir>        Application root: config, credentials, sessions (default ~/.siftory)
+  --home <dir>        Application root: config, credentials, sessions (default ~/.hodipor)
   --cwd <dir>         Tool working directory (default <home>/workspace)
   --model, -m <p/m>   Model as provider/model[:thinking]
   --session <id>      Open a specific session storage
@@ -49,7 +49,7 @@ Without --print and without a TTY, the prompt is read from stdin.`;
 
 /**
  * CLI entry. `inject.models` is the test seam (faux provider); production
- * builds the Pi ModelRuntime over the Siftory home.
+ * builds the Pi ModelRuntime over the Hodipor home.
  */
 /**
  * @param {string[]} [argv]
@@ -60,7 +60,7 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 	try {
 		options = parseCliArgs(argv);
 	} catch (/** @type {any} */ error) {
-		process.stderr.write(`siftory: ${error.message}\n\n${USAGE}\n`);
+		process.stderr.write(`hodipor: ${error.message}\n\n${USAGE}\n`);
 		return 2;
 	}
 	if (options.help) {
@@ -70,21 +70,21 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 	if (options.version) {
 		const { readFile } = await import("node:fs/promises");
 		const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-		process.stdout.write(`siftory ${pkg.version} (durable)\n`);
+		process.stdout.write(`hodipor ${pkg.version} (durable)\n`);
 		return 0;
 	}
 
 	const { resolveHome, pickSession, initHome } = await import("./home.mjs");
-	const { createSiftoryModels, defaultModelRef } = await import("./models.mjs");
+	const { createHodiporModels, defaultModelRef } = await import("./models.mjs");
 	const { openSession } = await import("./session.mjs");
 
 	const paths = resolveHome(options);
 	initHome(paths);
-	const models = inject.models ?? (await createSiftoryModels({ agentDir: paths.agentDir }));
+	const models = inject.models ?? (await createHodiporModels({ agentDir: paths.agentDir }));
 	const modelRef = await defaultModelRef(models, options.model);
 	if (!modelRef && (options.print || !process.stdout.isTTY || !process.stdin.isTTY)) {
 		process.stderr.write(
-			"siftory: no model available. Configure a provider (interactive /login) or pass --model provider/model.\n",
+			"hodipor: no model available. Configure a provider (interactive /login) or pass --model provider/model.\n",
 		);
 		return 1;
 	}
@@ -105,7 +105,7 @@ if (invokedDirectly) {
 	main().then(
 		(code) => process.exit(code ?? 0),
 		(error) => {
-			process.stderr.write(`siftory: ${error instanceof Error ? error.message : String(error)}\n`);
+			process.stderr.write(`hodipor: ${error instanceof Error ? error.message : String(error)}\n`);
 			process.exit(1);
 		},
 	);

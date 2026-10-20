@@ -41,8 +41,8 @@ git diff --check
 | `/new` | 创建独立会话，当前视口清空，todo 面板从空状态开始 |
 | `/fork` | 分叉继承历史与 todo 面板；当前数据库组保持不变 |
 | `/todos` | 显示真实 todo 工具提交的任务，与面板一致 |
-| 中文输入/模型请求 | DeepSeek 返回 `SIFTORY_UI_OK`，文本显示与用量更新正常 |
-| 工具调用 | 实际创建「终端验收任务」，bash 执行 printf，输出 `SIFTORY_TOOL_OK` |
+| 中文输入/模型请求 | DeepSeek 返回 `HODIPOR_UI_OK`，文本显示与用量更新正常 |
+| 工具调用 | 实际创建「终端验收任务」，bash 执行 printf，输出 `HODIPOR_TOOL_OK` |
 | Esc 中断 | 在真实 bash `sleep 20` 执行期间取消，显示 aborted；随后能获得 `CANCEL_RECOVER_OK` |
 | `/compact` | 该验收上下文无需压缩，显示 `nothing to compact`；不再停留在 compacting；确认持久任务已终结 |
 | `/reset` | 显示 new context，现有 todo 按设计保留 |
@@ -58,7 +58,7 @@ git diff --check
 - `20261019-09-23-40-qkyxul`：主验收会话，含真实工具结果和一次分叉。
 - `20261019-09-25-37-kd7e04`、`20261019-09-29-33-q67368`：`/new` 隔离与恢复验收。
 
-所有本次启动的 Siftory 进程已正常退出，三个存储均无遗留锁。关闭额外 Warp 测试窗口，保留用户原 Warp 窗口；Apple Terminal 验收窗口停在 shell。
+所有本次启动的 Hodipor 进程已正常退出，三个存储均无遗留锁。关闭额外 Warp 测试窗口，保留用户原 Warp 窗口；Apple Terminal 验收窗口停在 shell。
 
 ## 后续样式补齐
 

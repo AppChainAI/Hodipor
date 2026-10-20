@@ -62,7 +62,7 @@ test("choice menus bound long lists, keep one cursor and fit narrow terminals", 
 });
 
 test("resume without an ID opens a searchable picker instead of silently switching sessions", async (t) => {
-	const dir = await mkdtemp(join(tmpdir(), "siftory-resume-menu-"));
+	const dir = await mkdtemp(join(tmpdir(), "hodipor-resume-menu-"));
 	t.after(() => rm(dir, { recursive: true, force: true }));
 	for (const id of ["first", "second"]) {
 		await mkdir(join(dir, id));

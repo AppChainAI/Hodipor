@@ -1,13 +1,13 @@
-# Siftory 架构
+# Hodipor 架构
 
 本文描述当前实现（durable 原生）。目标设计的完整论述见 [durable 原生产品设计](durable-native-design.md)。
 
 ## 定位
 
-Siftory 是通用 Agent 底座，不预设业务场景。durable 唯一拥有主会话、输入队列、模型执行、工具任务、压缩和业务文档；Siftory 拥有 CLI/TUI、资源装配、扩展装配、路径与存储生命周期；Pi 提供模型认证、资源加载与终端组件。
+Hodipor 是通用 Agent 底座，不预设业务场景。durable 唯一拥有主会话、输入队列、模型执行、工具任务、压缩和业务文档；Hodipor 拥有 CLI/TUI、资源装配、扩展装配、路径与存储生命周期；Pi 提供模型认证、资源加载与终端组件。
 
 ```text
-siftory / node src/cli.mjs
+hodipor / node src/cli.mjs
   ├─ cli.mjs / session.mjs     参数解析、模型装配、会话组生命周期、锁
   ├─ runtime.mjs               durable Harness + SQLite + CodingTools + persona 装配
   ├─ home.mjs                  --home/--cwd 解析、目录初始化、存储独占锁

@@ -51,13 +51,13 @@ git diff --check
 
 ## 可见终端验收
 
-本轮使用独立 home `/tmp/siftory-style-v2-20261019`，模型运行时仅复用 `.dev-home/agent` 已配置的 DeepSeek。没有复制/显示密钥，没有对用户会话发送提示，也不修改其主题设置或工作文件。
+本轮使用独立 home `/tmp/hodipor-style-v2-20261019`，模型运行时仅复用 `.dev-home/agent` 已配置的 DeepSeek。没有复制/显示密钥，没有对用户会话发送提示，也不修改其主题设置或工作文件。
 
 可重复启动相同的手动验收入口（会产生真实模型费用）：
 
 ```sh
 node test/helper-real-cli.mjs .dev-home/agent \
-  --home /tmp/siftory-style-v2-20261019 \
+  --home /tmp/hodipor-style-v2-20261019 \
   --model deepseek/deepseek-flash
 ```
 

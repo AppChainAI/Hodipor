@@ -27,7 +27,7 @@ async function waitFor(predicate, { timeoutMs = 15000 } = {}) {
  * outcome without executing the reducer again — exactly one task created.
  */
 test("todo create survives a crash between state commit and result commit", async (t) => {
-	const home = await mkdtemp(join(tmpdir(), "siftory-todo-crash-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-todo-crash-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const marker = join(home, "committed.marker");
 	const scriptPath = join(home, "faux.json");
@@ -63,11 +63,11 @@ test("todo create survives a crash between state commit and result commit", asyn
 	assert.equal(code, 0, `child stderr: ${childErr.join("")}`);
 	assert.match(chunks.join(""), /recovered after replay/);
 
-	const { openRuntime, createSiftoryRegistry, RUN_CONTEXT } = await import("../src/runtime.mjs");
+	const { openRuntime, createHodiporRegistry, RUN_CONTEXT } = await import("../src/runtime.mjs");
 	const opened = await openRuntime({
 		sessionStoragePath: join(home, "sessions", sessionId, "state.sqlite"),
 		models,
-		registry: createSiftoryRegistry({ cwd: home }),
+		registry: createHodiporRegistry({ cwd: home }),
 	});
 	t.after(() => opened.harness.close(RUN_CONTEXT).catch(() => {}));
 	const conversationId = (await opened.harness.commit((tx) => tx.scanConversations({}, 1), RUN_CONTEXT)).items[0].id;

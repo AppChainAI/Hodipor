@@ -10,7 +10,7 @@ const cli = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
 
 test("real acceptance helper requires a separate home before loading credentials", () => {
 	const helper = fileURLToPath(new URL("./helper-real-cli.mjs", import.meta.url));
-	const home = join(tmpdir(), "siftory-no-such-auth-source");
+	const home = join(tmpdir(), "hodipor-no-such-auth-source");
 	for (const args of [[join(home, "agent")], [join(home, "agent"), "--home", home]]) {
 		const result = spawnSync(process.execPath, [helper, ...args], { encoding: "utf8", timeout: 20000 });
 		assert.ifError(result.error);
@@ -20,7 +20,7 @@ test("real acceptance helper requires a separate home before loading credentials
 });
 
 test("launcher: help, version, and unknown-option handling", async (t) => {
-	const root = await mkdtemp(join(tmpdir(), "siftory-cli-"));
+	const root = await mkdtemp(join(tmpdir(), "hodipor-cli-"));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const run = (args, envOverrides = {}) => {
 		const result = spawnSync(process.execPath, [cli, ...args], {
@@ -38,7 +38,7 @@ test("launcher: help, version, and unknown-option handling", async (t) => {
 	assert.match(help.stdout, /--cwd/);
 	const pkg = JSON.parse(await readFile(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
 	const version = run(["--version"]);
-	assert.match(version.stdout, new RegExp(`^siftory ${pkg.version.replaceAll(".", "\\.")} \\(durable\\)`));
+	assert.match(version.stdout, new RegExp(`^hodipor ${pkg.version.replaceAll(".", "\\.")} \\(durable\\)`));
 	const bad = run(["--nope"]);
 	assert.equal(bad.status, 2);
 	assert.match(bad.stderr, /unknown option/);

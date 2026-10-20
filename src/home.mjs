@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
 /**
- * Siftory home: config, credentials, sessions, logs under one root (default ~/.siftory).
+ * Hodipor home: config, credentials, sessions, logs under one root (default ~/.hodipor).
  * Agent workspace: default tool cwd at <home>/workspace. Both resolved to absolute
  * paths at entry so nothing downstream re-joins relative paths (NodeExecutionEnv
  * double-joins relative cwd).
@@ -12,10 +12,10 @@ import { isAbsolute, join, resolve } from "node:path";
  * @param {{ home?: string; cwd?: string }} [options]
  */
 export function resolveHome(options = {}) {
-	if (process.env.SIFTORY_AGENT_DIR && !options.home) {
-		throw new Error("SIFTORY_AGENT_DIR is no longer supported; use --home to choose the application root");
+	if (process.env.HODIPOR_AGENT_DIR && !options.home) {
+		throw new Error("HODIPOR_AGENT_DIR is no longer supported; use --home to choose the application root");
 	}
-	const home = options.home ? resolve(options.home) : join(homedir(), ".siftory");
+	const home = options.home ? resolve(options.home) : join(homedir(), ".hodipor");
 	const cwd = options.cwd ? resolve(options.cwd) : join(home, "workspace");
 	return { home, cwd, agentDir: join(home, "agent"), sessionsDir: join(home, "sessions") };
 }

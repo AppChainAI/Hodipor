@@ -5,7 +5,7 @@ import { section } from "@earendil-works/pi-durable";
 import { stripFrontmatter } from "@earendil-works/pi-coding-agent";
 
 /**
- * Siftory resources: skills discovery and project context files from Pi's own
+ * Hodipor resources: skills discovery and project context files from Pi's own
  * loaders, delivered as durable prompt sections. Skill bodies stay on disk and
  * load on explicit /skill:name invocation, exactly like Pi.
  */

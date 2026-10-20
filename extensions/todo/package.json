@@ -1,8 +1,8 @@
 {
-  "name": "@siftory/todo",
+  "name": "@hodipor/todo",
   "version": "0.1.0",
   "private": true,
-  "description": "Durable-native todo extension for Siftory, ported from @juicesharp/rpiv-todo@2.13.8 (MIT)",
+  "description": "Durable-native todo extension for Hodipor, ported from @juicesharp/rpiv-todo@2.13.8 (MIT)",
   "type": "module",
   "main": "index.mjs",
   "exports": { ".": "./index.mjs", "./ui": "./ui.mjs" },

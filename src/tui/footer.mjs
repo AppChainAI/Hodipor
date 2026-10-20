@@ -15,7 +15,7 @@ import { formatCwdForFooter, formatTokens, estimateContextTokens } from "./pi-di
  */
 
 /** Pi's two-line footer layout, fed by durable snapshots, not an AgentSession facade. */
-export class SiftoryFooter {
+export class HodiporFooter {
 	/** @param {() => FooterState} getState */
 	constructor(getState) { this.getState = getState; }
 	invalidate() {}

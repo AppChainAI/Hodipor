@@ -7,10 +7,10 @@ import { createModels } from "@earendil-works/pi-ai/models";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
 import { main } from "../src/cli.mjs";
 import { acquireSessionLock, newSessionId, pickSession, resolveHome } from "../src/home.mjs";
-import { sessionStoragePath, openRuntime, createSiftoryRegistry, RUN_CONTEXT } from "../src/runtime.mjs";
+import { sessionStoragePath, openRuntime, createHodiporRegistry, RUN_CONTEXT } from "../src/runtime.mjs";
 
 async function tempHome(t) {
-	const root = await mkdtemp(join(tmpdir(), "siftory-durable-"));
+	const root = await mkdtemp(join(tmpdir(), "hodipor-durable-"));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	return root;
 }
@@ -26,7 +26,7 @@ async function fauxModels(t, responses) {
 
 test("home resolution: defaults, explicit --home/--cwd, relative paths anchor to process cwd", async (t) => {
 	const defaults = resolveHome({});
-	assert.equal(defaults.home, join(await import("node:os").then((m) => m.homedir()), ".siftory"));
+	assert.equal(defaults.home, join(await import("node:os").then((m) => m.homedir()), ".hodipor"));
 	assert.equal(defaults.cwd, join(defaults.home, "workspace"));
 
 	const here = process.cwd();
@@ -140,7 +140,7 @@ test("runtime: reopen harness resumes committed entries from SQLite", async (t) 
 	const { models, faux } = await fauxModels(t, [
 		(context) => {
 			const system = context.messages.filter((m) => m.role === "system").map((m) => JSON.stringify(m)).join("");
-			assert.match(system, /You are Siftory/);
+			assert.match(system, /You are Hodipor/);
 			assert.match(system, /Working style/);
 			assert.match(system, /Working directory/);
 			return fauxAssistantMessage("committed answer");
@@ -148,7 +148,7 @@ test("runtime: reopen harness resumes committed entries from SQLite", async (t) 
 	]);
 	const path = sessionStoragePath(sessionsDir, "resume-check");
 
-	const first = await openRuntime({ sessionStoragePath: path, models, registry: createSiftoryRegistry({ cwd: join(home, "workspace") }) });
+	const first = await openRuntime({ sessionStoragePath: path, models, registry: createHodiporRegistry({ cwd: join(home, "workspace") }) });
 	const root = await first.harness.root(RUN_CONTEXT, { agent: { model: { provider: "faux", modelId: "faux-1" }, cwd: join(home, "workspace") } });
 	first.harness.resume();
 	const settled = await (await root.submit({ type: "input", content: "remember this" }, RUN_CONTEXT)).wait(RUN_CONTEXT);
@@ -156,14 +156,14 @@ test("runtime: reopen harness resumes committed entries from SQLite", async (t) 
 	await first.harness.close(RUN_CONTEXT);
 	await first.release();
 
-	const second = await openRuntime({ sessionStoragePath: path, models, registry: createSiftoryRegistry({ cwd: join(home, "workspace") }) });
+	const second = await openRuntime({ sessionStoragePath: path, models, registry: createHodiporRegistry({ cwd: join(home, "workspace") }) });
 	const page = await second.harness.conversation(root.id, RUN_CONTEXT).then((c) => c.entries({}, 10, undefined, RUN_CONTEXT));
 	const texts = page.items.flatMap((entry) => entry.model ?? []).map((m) => JSON.stringify(m));
 	assert.match(texts.join(""), /remember this/);
 	assert.match(texts.join(""), /committed answer/);
 	await second.harness.close(RUN_CONTEXT);
 	await second.release();
-	// The persisted system prompt carried Siftory identity into the reopened context, proving sections rendered.
+	// The persisted system prompt carried Hodipor identity into the reopened context, proving sections rendered.
 	assert.equal(faux.state.callCount, 1);
 });
 

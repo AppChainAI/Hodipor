@@ -12,7 +12,7 @@ import { openSession } from "../src/session.mjs";
 import { RUN_CONTEXT } from "../src/runtime.mjs";
 
 async function fixture(t) {
-	const home = await mkdtemp(join(tmpdir(), "siftory-lifecycle-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-lifecycle-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const models = createModels();
 	const faux = fauxProvider({ models: [{ id: "faux-1", reasoning: true }] });
@@ -115,14 +115,14 @@ test("resume uses the saved cwd for tools, resources and TUI; explicit override 
 });
 
 test("legacy agent-dir configuration cannot silently select different credentials", (t) => {
-	const previous = process.env.SIFTORY_AGENT_DIR;
-	process.env.SIFTORY_AGENT_DIR = "/legacy/agent";
+	const previous = process.env.HODIPOR_AGENT_DIR;
+	process.env.HODIPOR_AGENT_DIR = "/legacy/agent";
 	try {
-		assert.throws(() => resolveHome(), /SIFTORY_AGENT_DIR.*--home/);
+		assert.throws(() => resolveHome(), /HODIPOR_AGENT_DIR.*--home/);
 		assert.equal(resolveHome({ home: "/explicit/home" }).home, "/explicit/home");
 	} finally {
-		if (previous === undefined) delete process.env.SIFTORY_AGENT_DIR;
-		else process.env.SIFTORY_AGENT_DIR = previous;
+		if (previous === undefined) delete process.env.HODIPOR_AGENT_DIR;
+		else process.env.HODIPOR_AGENT_DIR = previous;
 	}
 });
 

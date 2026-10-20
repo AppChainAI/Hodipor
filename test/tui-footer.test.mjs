@@ -3,7 +3,7 @@ import test from "node:test";
 import { stripVTControlCharacters as plain } from "node:util";
 import { initTheme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { SiftoryFooter, contextDisplayStats } from "../src/tui/footer.mjs";
+import { HodiporFooter, contextDisplayStats } from "../src/tui/footer.mjs";
 import { activeTheme } from "../src/tui/theme.mjs";
 
 initTheme("dark");
@@ -11,7 +11,7 @@ const usage = { input: 20, output: 10, cacheRead: 30, cacheWrite: 0, totalTokens
 
 test("footer uses the native two-line cwd/stats/model layout and includes tool usage", () => {
 	const state = { cwd: "/tmp/workspace", sessionId: "acceptance", model: { provider: "faux", id: "faux-1", reasoning: true, contextWindow: 1000 }, thinkingLevel: "high", contextTokens: 800, cacheHitRate: 60, usage: { models: { "faux/faux-1": usage }, tools: { billable: usage } } };
-	const footer = new SiftoryFooter(() => state);
+	const footer = new HodiporFooter(() => state);
 	const lines = footer.render(120);
 	assert.equal(lines.length, 2);
 	assert.match(plain(lines[0]), /\/tmp\/workspace • acceptance/);
@@ -25,7 +25,7 @@ test("footer uses the native two-line cwd/stats/model layout and includes tool u
 });
 
 test("new-session footer has zero context, no old spend, and follows theme changes", () => {
-	const footer = new SiftoryFooter(() => ({ cwd: "/tmp/new", sessionId: "NEW_SESSION", contextTokens: 0, model: { id: "faux-1", provider: "faux", reasoning: true, contextWindow: 1000 } }));
+	const footer = new HodiporFooter(() => ({ cwd: "/tmp/new", sessionId: "NEW_SESSION", contextTokens: 0, model: { id: "faux-1", provider: "faux", reasoning: true, contextWindow: 1000 } }));
 	const dark = footer.render(100);
 	assert.match(plain(dark.join("\n")), /0.0%\/1.0k.*thinking off/);
 	assert.doesNotMatch(plain(dark.join("\n")), /↑|↓|\$|working|Ctrl\+T todos/);

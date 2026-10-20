@@ -12,7 +12,7 @@ import { createPersonaExtension } from "../src/runtime.mjs";
 import { createResourceSections, expandSkillInvocation, listSkills } from "../src/resources.mjs";
 
 async function fixture(t) {
-	const home = await mkdtemp(join(tmpdir(), "siftory-res-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-res-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const cwd = join(home, "project");
 	const agentDir = join(home, "agent");
@@ -39,7 +39,7 @@ test("skills and project context land in the system prompt; bodies load on /skil
 	faux.setResponses([
 		(context) => {
 			const system = JSON.stringify(context.messages.filter((m) => m.role === "system"));
-			assert.match(system, /You are Siftory/);
+			assert.match(system, /You are Hodipor/);
 			assert.match(system, /fixture-skill/);
 			assert.doesNotMatch(system, /SKILL_BODY_MARKER/);
 			assert.match(system, /PROJECT_CONTEXT_MARKER/);

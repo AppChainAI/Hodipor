@@ -22,7 +22,7 @@ import { nextSessionId } from "../session.mjs";
 import { TodoDoc, formatTodoSummary } from "../../extensions/todo/index.mjs";
 import { TodoPanel } from "../../extensions/todo/ui.mjs";
 import { RunStatus } from "./run-status.mjs";
-import { SiftoryFooter, contextDisplayStats } from "./footer.mjs";
+import { HodiporFooter, contextDisplayStats } from "./footer.mjs";
 import { ThemedText } from "./pi-display.mjs";
 
 /** App-level defaults CustomEditor matches beyond the TUI's own editor keys. */
@@ -45,7 +45,7 @@ const APP_KEYS = {
 /** @typedef {{ model?: { provider: string; modelId: string }; thinkingLevel?: import("@earendil-works/pi-ai").ModelThinkingLevel; cwd?: string }} AgentCache */
 
 /**
- * The Siftory TUI: layout, focus, input, and command assembly. Conversation and
+ * The Hodipor TUI: layout, focus, input, and command assembly. Conversation and
  * todo state live in durable; this function holds display state only.
  * @param {TuiArgs} args
  */
@@ -64,7 +64,7 @@ export async function runTui({ harness, root, models, paths, sessionId, options 
 		const hints = toolsExpanded
 			? [["esc", "to interrupt"], ["ctrl+c", "to exit"], ["ctrl+d", "to exit (empty editor)"], ["/", "for commands"], ["ctrl+o", "to expand tools and todos"], ["ctrl+t", "to expand thinking"], ["ctrl+shift+t", "to collapse todos"]].map(([key, description]) => rawKeyHint(key, description)).join("\n")
 			: [["esc", "interrupt"], ["ctrl+c", "exit"], ["/", "commands"], ["ctrl+o", "more"]].map(([key, description]) => rawKeyHint(key, description)).join(theme.fg("muted", " · "));
-		return `${theme.fg("accent", theme.bold("Siftory"))}\n${hints}`;
+		return `${theme.fg("accent", theme.bold("Hodipor"))}\n${hints}`;
 	}, 1, 1);
 	const transcriptContainer = new Container();
 	const statusContainer = new Container();
@@ -75,7 +75,7 @@ export async function runTui({ harness, root, models, paths, sessionId, options 
 
 	const statusLine = new Text("", 1, 0);
 	statusContainer.addChild(statusLine);
-	const footer = new SiftoryFooter(() => {
+	const footer = new HodiporFooter(() => {
 		const model = state.agent.model;
 		const definition = model ? models.getModel(model.provider, model.modelId) : undefined;
 		return { cwd: state.agent.cwd ?? paths.cwd, sessionId, usage: state.usage, thinkingLevel: state.agent.thinkingLevel,
@@ -231,7 +231,7 @@ export async function runTui({ harness, root, models, paths, sessionId, options 
 			onBusyChange: (busy) => {
 				state.busy = busy;
 				terminal.setProgress(busy);
-				terminal.setProgramStatus({ state: busy ? "working" : "idle", app: "siftory" });
+				terminal.setProgramStatus({ state: busy ? "working" : "idle", app: "hodipor" });
 				updateFooter();
 			},
 			onSnapshotMeta: (snapshot) => {

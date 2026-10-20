@@ -46,7 +46,7 @@ export async function runPrint({ harness, root, prompt, signal }) {
 	await events.stop().catch(() => {});
 	if (settled.status === "unanswered") {
 		const reason = interrupted ? "interrupted" : settled.reason;
-		process.stderr.write(`siftory: ${reason}\n`);
+		process.stderr.write(`hodipor: ${reason}\n`);
 		return 1;
 	}
 	return 0;

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { activeTheme, createThemeController } from "../src/tui/theme.mjs";
 
 async function fixture(t, settings) {
-	const home = await mkdtemp(join(tmpdir(), "siftory-theme-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-theme-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const agentDir = join(home, "agent");
 	await mkdir(join(agentDir, "themes"), { recursive: true });

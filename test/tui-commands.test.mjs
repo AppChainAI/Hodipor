@@ -10,7 +10,7 @@ import { initTheme } from "@earendil-works/pi-coding-agent";
 initTheme();
 
 test("ordinary text ending in Chinese punctuation cannot silently complete a filename", async (t) => {
-	const cwd = await mkdtemp(join(tmpdir(), "siftory-completion-"));
+	const cwd = await mkdtemp(join(tmpdir(), "hodipor-completion-"));
 	t.after(() => rm(cwd, { recursive: true, force: true }));
 	await writeFile(join(cwd, "llm-intro.md"), "fixture");
 	const provider = createCommandAutocomplete(cwd);
@@ -23,7 +23,7 @@ test("ordinary text ending in Chinese punctuation cannot silently complete a fil
 });
 
 test("input dispatch reaches skill bodies and templates, reports missing commands", async (t) => {
-	const home = await mkdtemp(join(tmpdir(), "siftory-input-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-input-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	await mkdir(join(home, "skills", "demo"), { recursive: true });
 	await mkdir(join(home, "prompts"));

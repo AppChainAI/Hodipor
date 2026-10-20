@@ -2,12 +2,12 @@ import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
 /**
- * Assemble the Pi ModelRuntime over Siftory's own credential and model config
+ * Assemble the Pi ModelRuntime over Hodipor's own credential and model config
  * paths. Explicit paths keep the personal ~/.pi setup untouched; ModelRuntime
  * implements pi-ai Models, which is exactly what the durable Harness wants.
  */
 /** @param {{ agentDir: string }} options */
-export async function createSiftoryModels({ agentDir }) {
+export async function createHodiporModels({ agentDir }) {
 	return ModelRuntime.create({
 		authPath: join(agentDir, "auth.json"),
 		modelsPath: join(agentDir, "models.json"),

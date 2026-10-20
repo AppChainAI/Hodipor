@@ -14,7 +14,7 @@ import { Container } from "@earendil-works/pi-tui";
 import { stripVTControlCharacters as stripAnsi } from "node:util";
 import { initTheme } from "@earendil-works/pi-coding-agent";
 import { createTodoExtension } from "../extensions/todo/index.mjs";
-import { createSiftoryRegistry, RUN_CONTEXT } from "../src/runtime.mjs";
+import { createHodiporRegistry, RUN_CONTEXT } from "../src/runtime.mjs";
 import { attachTranscript } from "../src/tui/transcript.mjs";
 
 initTheme("dark");
@@ -22,12 +22,12 @@ const tui = { requestRender() {}, invalidate() {} };
 const render = container => stripAnsi(container.render(100).join("\n"));
 
 async function fixture(t, responses, extensions = []) {
-	const cwd = await mkdtemp(join(tmpdir(), "siftory-display-"));
+	const cwd = await mkdtemp(join(tmpdir(), "hodipor-display-"));
 	t.after(() => rm(cwd, { recursive: true, force: true }));
 	const faux = fauxProvider({ models: [{ id: "faux-1" }] });
 	faux.setResponses(responses);
 	const models = createModels(); models.setProvider(faux.provider);
-	const registry = createSiftoryRegistry();
+	const registry = createHodiporRegistry();
 	registry.install(createTodoExtension());
 	registry.install(createCodemodeExtension({ sandbox: new CodemodeSandbox() }));
 	for (const extension of extensions) registry.install(extension);

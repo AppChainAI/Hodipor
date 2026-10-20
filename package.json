@@ -1,11 +1,11 @@
 {
-  "name": "siftory",
+  "name": "hodipor",
   "version": "0.1.0",
   "description": "A general-purpose, extensible terminal agent powered by Pi",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "siftory": "src/cli.mjs"
+    "hodipor": "src/cli.mjs"
   },
   "files": [
     "src",
@@ -15,9 +15,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/AppChainAI/Siftory.git"
+    "url": "https://github.com/AppChainAI/Hodipor.git"
   },
-  "homepage": "https://github.com/AppChainAI/Siftory#readme",
+  "homepage": "https://github.com/AppChainAI/Hodipor#readme",
   "keywords": [
     "agent",
     "cli",

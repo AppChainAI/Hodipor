@@ -35,15 +35,15 @@ python3 test/tui-pty.py
 
 ## 恢复
 
-1. 对话中途强制关闭终端（或 kill 进程）；`siftory --continue` 重开：历史完整，未完成的运行继续，bash 未重跑。
+1. 对话中途强制关闭终端（或 kill 进程）；`hodipor --continue` 重开：历史完整，未完成的运行继续，bash 未重跑。
 2. 同一 `--session` 第二次启动被拒绝（owner lock）；kill 掉的进程留下有效死亡 PID 锁时可自动接管。若报 owner.guard 或锁损坏，先确认所有相关进程已停止再核实清理，不能直接删除活锁。
-3. `--home` 指向临时目录时，不读写 `~/.siftory` 与 `~/.pi`。
+3. `--home` 指向临时目录时，不读写 `~/.hodipor` 与 `~/.pi`。
 
 ## print 模式
 
 ```sh
-bun run start --print "说明当前工作目录" --home /tmp/siftory-dev
-echo "管道输入" | bun run start --home /tmp/siftory-dev
+bun run start --print "说明当前工作目录" --home /tmp/hodipor-dev
+echo "管道输入" | bun run start --home /tmp/hodipor-dev
 ```
 
 无 TTY 输入输出时自动走 print 模式；Ctrl-C 中止并以非零码退出。

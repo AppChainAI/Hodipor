@@ -1,8 +1,8 @@
-# Siftory
+# Hodipor
 
 通用、可扩展的终端 Agent，durable 原生执行引擎。没有预设研究、视频或其他业务场景。
 
-对话、执行、恢复和 todo 状态全部由 durable 引擎持久化在本地 SQLite；Siftory 提供 CLI/TUI、独立配置目录、资源装配和扩展。复用 Pi 的模型认证、Skills 发现和终端组件。
+对话、执行、恢复和 todo 状态全部由 durable 引擎持久化在本地 SQLite；Hodipor 提供 CLI/TUI、独立配置目录、资源装配和扩展。复用 Pi 的模型认证、Skills 发现和终端组件。
 
 ## 开始使用
 
@@ -15,14 +15,14 @@ bun run start
 
 进入后若没有可用模型会自动打开供应商登录（带启动参数时不劫持）；之后可随时用 `/login` 配置供应商、`/model` 选择模型。也可使用供应商环境变量，如 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`。
 
-不指定参数时，工具工作目录是 `~/.siftory/workspace`（不再是启动时所在目录）：
+不指定参数时，工具工作目录是 `~/.hodipor/workspace`（不再是启动时所在目录）：
 
 ```sh
-siftory                                  # home = ~/.siftory，工作目录 = ~/.siftory/workspace
-siftory --home /path/to/dev-siftory      # 独立开发 home
-siftory --cwd /path/to/project           # 配置凭证归 home，工具操作 project
-siftory --print "总结这个目录"            # 打印模式：回答一次即退出（无 TTY 时默认）
-siftory --continue                       # 继续最近一次会话
+hodipor                                  # home = ~/.hodipor，工作目录 = ~/.hodipor/workspace
+hodipor --home /path/to/dev-hodipor      # 独立开发 home
+hodipor --cwd /path/to/project           # 配置凭证归 home，工具操作 project
+hodipor --print "总结这个目录"            # 打印模式：回答一次即退出（无 TTY 时默认）
+hodipor --continue                       # 继续最近一次会话
 ```
 
 ## 基础能力
@@ -38,7 +38,7 @@ siftory --continue                       # 继续最近一次会话
 | 恢复 | 崩溃或退出后重开同一存储，未完成的工作从中断点继续 |
 | 基础工具 | read、write、edit、bash |
 | Skills | 标准 SKILL.md 发现、描述索引、按需读取；`/skill:name` 显式加载 |
-| 提示词模板 | `~/.siftory/agent/prompts/<name>.md`，`/name 参数` 展开 `$ARGUMENTS` |
+| 提示词模板 | `~/.hodipor/agent/prompts/<name>.md`，`/name 参数` 展开 `$ARGUMENTS` |
 | Todo | 模型用 `todo` 工具维护任务清单；面板实时显示；Ctrl+Shift+T 折叠；Ctrl+O 展开全部任务；`/todos` 查看分组列表 |
 | codemode / tool-search | durable 原生实现，默认装配 |
 | 扩展 | durable 原生扩展（见 [扩展指南](docs/extensions.md)） |
@@ -55,7 +55,7 @@ siftory --continue                       # 继续最近一次会话
 ## 配置与目录
 
 ```text
-~/.siftory/
+~/.hodipor/
 ├─ agent/
 │  ├─ auth.json              密钥 / OAuth
 │  ├─ models.json            自定义供应商与模型
@@ -75,7 +75,7 @@ siftory --continue                       # 继续最近一次会话
 ## 开发
 
 ```sh
-bun run start --home /path/to/dev-siftory
+bun run start --home /path/to/dev-hodipor
 bun run check
 bun run test
 ```

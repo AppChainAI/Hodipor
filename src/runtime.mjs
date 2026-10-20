@@ -8,15 +8,15 @@ import { CodingTools } from "@earendil-works/pi-durable/tools";
 
 export const RUN_CONTEXT = BACKGROUND_CONTEXT;
 
-export const SIFTORY_IDENTITY =
-	"You are Siftory, a general-purpose AI assistant. Help users answer questions, analyze information, write, and complete tasks using the available tools. Be concise and clear about uncertainty.";
+export const HODIPOR_IDENTITY =
+	"You are Hodipor, a general-purpose AI assistant. Help users answer questions, analyze information, write, and complete tasks using the available tools. Be concise and clear about uncertainty.";
 
 /**
  * Baseline working discipline, independent of persona: downstream products may
  * replace the identity but should keep these rules unless they deliberately
  * opt out. Names only the tools the standard registry guarantees.
  */
-export const SIFTORY_CONDUCT = `Working style:
+export const HODIPOR_CONDUCT = `Working style:
 - Use the tools to act on the real environment. Never claim to have created, changed, or run something you did not.
 - Inspect before changing: read files and check current state before writing or editing.
 - Prefer the dedicated tools (read, write, edit) over shell equivalents; reserve bash for what they cannot do.
@@ -28,26 +28,26 @@ Response style:
 - Separate observed facts from inference; state uncertainty where it exists.
 - When an ambiguity changes the outcome, ask one precise question instead of guessing.`;
 
-/** Siftory's own identity, working discipline, and working-directory context, next to the coding tools. */
+/** Hodipor's own identity, working discipline, and working-directory context, next to the coding tools. */
 /**
  * @param {{ identity?: string; conduct?: string; extraSections?: import("@earendil-works/pi-durable").PromptSection[] }} [options]
  */
-export function createPersonaExtension({ identity = SIFTORY_IDENTITY, conduct = SIFTORY_CONDUCT, extraSections = [] } = {}) {
+export function createPersonaExtension({ identity = HODIPOR_IDENTITY, conduct = HODIPOR_CONDUCT, extraSections = [] } = {}) {
 	return defineExtension({
-		name: "siftory",
+		name: "hodipor",
 		sections: [
-			section("siftory-identity", () => identity, { tag: false }),
-			...(conduct ? [section("siftory-conduct", () => conduct, { tag: false })] : []),
+			section("hodipor-identity", () => identity, { tag: false }),
+			...(conduct ? [section("hodipor-conduct", () => conduct, { tag: false })] : []),
 			section("cwd", (input) => (input.env?.cwd ? `Working directory: ${input.env.cwd}` : undefined), { tag: false }),
 			...extraSections,
 		],
 	});
 }
 
-/** The standard Siftory registry: coding tools plus the persona extension. */
+/** The standard Hodipor registry: coding tools plus the persona extension. */
 /** @param {{ cwd: string; extraSections?: import("@earendil-works/pi-durable").PromptSection[] }} [personaOptions] */
 /** @param {{ cwd?: string; identity?: string; extraSections?: import("@earendil-works/pi-durable").PromptSection[] }} [personaOptions] */
-export function createSiftoryRegistry(personaOptions = {}) {
+export function createHodiporRegistry(personaOptions = {}) {
 	const registry = createRegistry();
 	registry.install(CodingTools);
 	registry.install(createPersonaExtension(personaOptions));

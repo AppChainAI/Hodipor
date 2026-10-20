@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class Terminal:
     def __init__(self, *, real_models=False, responses=None, prompt=None):
-        self.temp = tempfile.TemporaryDirectory(prefix="siftory-pty-")
+        self.temp = tempfile.TemporaryDirectory(prefix="hodipor-pty-")
         self.home = Path(self.temp.name)
         self.output = bytearray()
         self.master, slave = pty.openpty()
@@ -27,7 +27,7 @@ class Terminal:
             k.endswith("_API_KEY") or k.startswith(("ANTHROPIC_", "OPENAI_", "GOOGLE_", "GROQ_", "XAI_", "MOONSHOT_", "ZAI_", "MISTRAL_", "OPENROUTER_"))
         )}
         env["TERM"] = "xterm-256color"
-        env.pop("SIFTORY_AGENT_DIR", None)
+        env.pop("HODIPOR_AGENT_DIR", None)
         if real_models:
             command = ["node", "src/cli.mjs", "--home", str(self.home)]
         else:
@@ -218,7 +218,7 @@ class TuiTests(unittest.TestCase):
         self.assertIn(b"\x1b[2J", fresh)
         self.assertNotIn(b"\x1b[H", fresh, "Warp's command header can obscure content painted at absolute row zero")
         self.assertIn(b"workspace", fresh)
-        self.assertIn(b"Siftory", fresh)
+        self.assertIn(b"Hodipor", fresh)
         self.assertNotIn(b"Ctrl+T todos", fresh)
         self.assertEqual(json.loads((terminal.home / "agent" / "settings.json").read_text())["theme"], "light")
         terminal.send(b"after new session\r")

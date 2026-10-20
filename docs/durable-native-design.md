@@ -1,4 +1,4 @@
-# Siftory durable 原生产品设计
+# Hodipor durable 原生产品设计
 
 更新日期：2026-10-19。
 
@@ -6,10 +6,10 @@
 
 ## 1. 目标与范围
 
-Siftory 重构为 durable 原生产品，尽量复用 Pi 已有的核心模块。需要的 Pi 插件移植为 durable 原生扩展，不建设通用 Pi 插件兼容层。
+Hodipor 重构为 durable 原生产品，尽量复用 Pi 已有的核心模块。需要的 Pi 插件移植为 durable 原生扩展，不建设通用 Pi 插件兼容层。
 
 - durable 唯一拥有主会话、输入队列、模型执行、工具任务、压缩和业务文档。
-- Siftory 拥有 CLI/TUI、资源装配、扩展装配、路径与存储生命周期。
+- Hodipor 拥有 CLI/TUI、资源装配、扩展装配、路径与存储生命周期。
 - Pi 提供模型与认证、资源加载、终端渲染及可复用显示组件，不再作为整套运行中的宿主。
 - 保持通用 Agent 定位，不预设研究、视频等业务管线。
 - 支持指定独立运行根目录，开发配置、凭证和数据不污染日常环境。
@@ -19,7 +19,7 @@ Siftory 重构为 durable 原生产品，尽量复用 Pi 已有的核心模块�
 ## 2. 运行架构
 
 ```text
-Siftory CLI / TUI 宿主
+Hodipor CLI / TUI 宿主
   ├─ Pi ModelRuntime → 模型、凭证、OAuth、模型配置
   ├─ Pi 资源模块 → Skills、项目上下文、提示词、主题
   ├─ pi-tui + Pi 显示组件 → 输入、消息、工具结果、面板
@@ -56,7 +56,7 @@ TUI 只持有布局、焦点、选择、折叠等显示状态。对话、执行�
 扩展在仓库根目录独立组织，不放在宿主 `src/` 内。
 
 ```text
-Siftory/
+Hodipor/
 ├─ src/
 │  ├─ cli.mjs                 启动、参数解析、退出处理
 │  ├─ home.mjs                路径解析、目录初始化、存储独占
@@ -100,22 +100,22 @@ Siftory/
 
 区分两个概念：
 
-- **Siftory home**：配置、凭证和运行数据的独立根目录，默认 `~/.siftory`。
+- **Hodipor home**：配置、凭证和运行数据的独立根目录，默认 `~/.hodipor`。
 - **Agent workspace**：默认文件工作目录，位于 `<home>/workspace/`，不是应用状态根目录。
 
 `--home` 指定应用根目录，`--cwd` 指定工具工作目录；默认工作子目录使用 `workspace/`，不再使用早期草案中的 `work/`。早期将根目录称为 `--workspace` 的草案不再与此并列；上述参数已实现。
 
 ```sh
-siftory
-# home = ~/.siftory
-# cwd  = ~/.siftory/workspace
+hodipor
+# home = ~/.hodipor
+# cwd  = ~/.hodipor/workspace
 
-siftory --home /path/to/dev-siftory
-# home = /path/to/dev-siftory
-# cwd  = /path/to/dev-siftory/workspace
+hodipor --home /path/to/dev-hodipor
+# home = /path/to/dev-hodipor
+# cwd  = /path/to/dev-hodipor/workspace
 
-siftory --home /path/to/dev-siftory --cwd /path/to/project
-# 配置、凭证和数据库仍归 dev-siftory，工具操作 project
+hodipor --home /path/to/dev-hodipor --cwd /path/to/project
+# 配置、凭证和数据库仍归 dev-hodipor，工具操作 project
 ```
 
 不指定参数时不再默认采用启动 shell 的 cwd，这是相对于当前产品行为的明确变更。
@@ -123,7 +123,7 @@ siftory --home /path/to/dev-siftory --cwd /path/to/project
 ### 运行目录
 
 ```text
-<siftory-home>/
+<hodipor-home>/
 ├─ agent/
 │  ├─ auth.json                API key / OAuth 凭证
 │  ├─ models.json              自定义模型配置
@@ -150,7 +150,7 @@ siftory --home /path/to/dev-siftory --cwd /path/to/project
 - 新会话持久化解析后的 cwd；恢复默认沿用原 cwd，显式覆盖作为会话配置变更处理。
 - 模块使用显式配置路径，不修改全局 HOME；目录按需创建，凭证和私密数据使用严格权限。
 - 多个 home 不自动共享会话或凭证，不自动继承个人 Pi 配置，不自动复制密钥。
-- 保留 `agent/` 配置布局以减少迁移；`SIFTORY_AGENT_DIR` 已退出。若只设置该变量，入口报错要求改用 `--home`；显式 `--home` 优先，不静默改读默认凭证。
+- 保留 `agent/` 配置布局以减少迁移；`HODIPOR_AGENT_DIR` 已退出。若只设置该变量，入口报错要求改用 `--home`；显式 `--home` 优先，不静默改读默认凭证。
 - 宿主配置、数据、临时产物和日志尽量集中到 home。共享 Skills 等外部发现路径必须明确；严格开发隔离时显式限制发现范围。
 - home/workspace 不是访问沙箱，工具仍可能访问外部路径；第三方工具、包管理器和供应商可能另有缓存。
 - home 含凭证和私密会话，不应默认提交到项目仓库。
@@ -160,11 +160,11 @@ siftory --home /path/to/dev-siftory --cwd /path/to/project
 源码和开发运行数据分开：
 
 ```sh
-bun run start --home /Volumes/UWorks/Projects/Test/siftory-dev
-bun run start --home /Volumes/UWorks/Projects/Test/siftory-dev --cwd /path/to/project
+bun run start --home /Volumes/UWorks/Projects/Test/hodipor-dev
+bun run start --home /Volumes/UWorks/Projects/Test/hodipor-dev --cwd /path/to/project
 ```
 
-以上命令已生效。自动化测试必须使用临时 home，不能默认打开真实 `~/.siftory`。
+以上命令已生效。自动化测试必须使用临时 home，不能默认打开真实 `~/.hodipor`。
 
 ## 6. SQLite 与会话生命周期
 
@@ -283,7 +283,7 @@ Pi 接口核对基于本地 1.3.0；上游阅读基线为 main SHA `8efd314fa3d3
 同类产品目录参考：
 
 - [OpenClaw Agent workspace](https://docs.openclaw.ai/concepts/agent-workspace)：默认 `~/.openclaw/workspace`，配置与运行数据库置于工作目录之外、应用根之内。
-- [Hermes Configuration](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/configuration.md)：配置集中在 Hermes home；CLI 默认 cwd 是启动目录，Siftory 不采用这个默认值。
+- [Hermes Configuration](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/configuration.md)：配置集中在 Hermes home；CLI 默认 cwd 是启动目录，Hodipor 不采用这个默认值。
 - [Hermes Session Storage](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/session-storage.md)：home 下的 `state.db` 与单写 gateway；不能据此认为多个 durable CLI 可共享同一存储。
 
 上述接口是设计时核对基线。当前 faux 模型、SQLite 崩溃恢复、todo 提交后崩溃重放、TUI 投影与终端补全/切换已有实测；真实供应商、完整 OAuth、跨平台及旧版本存储升级仍待验收，详见设计审查。

@@ -9,13 +9,13 @@ import { LiveDoc } from "@earendil-works/pi-durable";
 import { AssistantMessageComponent, UserMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
 import { Container } from "@earendil-works/pi-tui";
 import { attachTranscript } from "../src/tui/transcript.mjs";
-import { createSiftoryRegistry, openRuntime, RUN_CONTEXT } from "../src/runtime.mjs";
+import { createHodiporRegistry, openRuntime, RUN_CONTEXT } from "../src/runtime.mjs";
 
 initTheme();
 const fakeTui = { requestRender() {}, setFocus() {}, showOverlay() {}, invalidate() {} };
 
 async function runtime(t, responses) {
-	const home = await mkdtemp(join(tmpdir(), "siftory-tui-"));
+	const home = await mkdtemp(join(tmpdir(), "hodipor-tui-"));
 	t.after(() => rm(home, { recursive: true, force: true }));
 	const faux = fauxProvider({ models: [{ id: "faux-1" }] });
 	faux.setResponses(responses);
@@ -24,7 +24,7 @@ async function runtime(t, responses) {
 	const opened = await openRuntime({
 		sessionStoragePath: join(home, "state.sqlite"),
 		models,
-		registry: createSiftoryRegistry({ cwd: home }),
+		registry: createHodiporRegistry({ cwd: home }),
 	});
 	t.after(async () => {
 		await opened.harness.close(RUN_CONTEXT);
