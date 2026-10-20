@@ -1,12 +1,31 @@
 {
   "name": "siftory",
   "version": "0.1.0",
-  "private": true,
   "description": "A general-purpose, extensible terminal agent powered by Pi",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "siftory": "src/cli.mjs"
   },
+  "files": [
+    "src",
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AppChainAI/Siftory.git"
+  },
+  "homepage": "https://github.com/AppChainAI/Siftory#readme",
+  "keywords": [
+    "agent",
+    "cli",
+    "terminal",
+    "ai",
+    "llm",
+    "harness"
+  ],
   "scripts": {
     "start": "node src/cli.mjs",
     "dev": "node src/cli.mjs",
