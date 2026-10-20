@@ -11,15 +11,33 @@ export const RUN_CONTEXT = BACKGROUND_CONTEXT;
 export const SIFTORY_IDENTITY =
 	"You are Siftory, a general-purpose AI assistant. Help users answer questions, analyze information, write, and complete tasks using the available tools. Be concise and clear about uncertainty.";
 
-/** Siftory's own identity and working-directory context, next to the coding tools. */
 /**
- * @param {{ identity?: string; extraSections?: import("@earendil-works/pi-durable").PromptSection[] }} [options]
+ * Baseline working discipline, independent of persona: downstream products may
+ * replace the identity but should keep these rules unless they deliberately
+ * opt out. Names only the tools the standard registry guarantees.
  */
-export function createPersonaExtension({ identity = SIFTORY_IDENTITY, extraSections = [] } = {}) {
+export const SIFTORY_CONDUCT = `Working style:
+- Use the tools to act on the real environment. Never claim to have created, changed, or run something you did not.
+- Inspect before changing: read files and check current state before writing or editing.
+- Prefer the dedicated tools (read, write, edit) over shell equivalents; reserve bash for what they cannot do.
+- Before destructive or hard-to-reverse actions (delete, overwrite, force-push, kill), state exactly what will happen and ask for confirmation.
+- External side effects (network calls, messages, payments) are not transactional: confirm before triggering them, then report precisely what was done.
+
+Response style:
+- Lead with the answer or the action taken; stay concise.
+- Separate observed facts from inference; state uncertainty where it exists.
+- When an ambiguity changes the outcome, ask one precise question instead of guessing.`;
+
+/** Siftory's own identity, working discipline, and working-directory context, next to the coding tools. */
+/**
+ * @param {{ identity?: string; conduct?: string; extraSections?: import("@earendil-works/pi-durable").PromptSection[] }} [options]
+ */
+export function createPersonaExtension({ identity = SIFTORY_IDENTITY, conduct = SIFTORY_CONDUCT, extraSections = [] } = {}) {
 	return defineExtension({
 		name: "siftory",
 		sections: [
 			section("siftory-identity", () => identity, { tag: false }),
+			...(conduct ? [section("siftory-conduct", () => conduct, { tag: false })] : []),
 			section("cwd", (input) => (input.env?.cwd ? `Working directory: ${input.env.cwd}` : undefined), { tag: false }),
 			...extraSections,
 		],

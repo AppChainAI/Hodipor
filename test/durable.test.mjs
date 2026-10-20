@@ -141,6 +141,7 @@ test("runtime: reopen harness resumes committed entries from SQLite", async (t) 
 		(context) => {
 			const system = context.messages.filter((m) => m.role === "system").map((m) => JSON.stringify(m)).join("");
 			assert.match(system, /You are Siftory/);
+			assert.match(system, /Working style/);
 			assert.match(system, /Working directory/);
 			return fauxAssistantMessage("committed answer");
 		},
