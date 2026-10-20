@@ -21,6 +21,31 @@ async function waitFor(predicate, { timeoutMs = 15000 } = {}) {
 }
 
 /**
+ * The durable reopen/replay path has been observed to stall silently on Windows runners; bound each
+ * recovery phase so a stall surfaces as this test's failure with context instead of a file timeout.
+ * @param {string} label
+ * @param {Promise<any>} step
+ * @param {(() => string) | undefined} detail
+ * @param {number} [budgetMs]
+ */
+async function bounded(label, step, detail, budgetMs = 45_000) {
+	let fire;
+	const timer = new Promise((resolve) => { fire = () => resolve({ stalled: true }); });
+	const handle = setTimeout(fire, budgetMs);
+	try {
+		const settled = await Promise.race([step.then((value) => ({ value }), (error) => ({ error })), timer]);
+		if (settled.stalled) {
+			step.catch(() => {}); // the stalled step may still reject later; the stall report is the result
+			throw new Error(`${label} stalled after ${budgetMs}ms${detail ? `; ${detail()}` : ""}`);
+		}
+		if ("error" in settled) throw settled.error;
+		return settled.value;
+	} finally {
+		clearTimeout(handle);
+	}
+}
+
+/**
  * The crash window replay safety must survive: the todo mutation and its call
  * receipt are committed, the tool result is not, the process dies. On reopen
  * the replay-safe tool reruns, hits its receipt, and returns the original
@@ -61,27 +86,37 @@ test("todo create survives a crash between state commit and result commit", asyn
 		chunks.push(String(chunk));
 		return true;
 	});
-	const code = await main(["--print", "continue", "--home", home, "--session", sessionId, "--model", "faux/faux-1"], { models });
+	const code = await bounded(
+		"recovery main()",
+		main(["--print", "continue", "--home", home, "--session", sessionId, "--model", "faux/faux-1"], { models }),
+		() => `child stderr: ${childErr.join("") || "(empty)"}; session files: ${JSON.stringify(readdirSync(join(home, "sessions"), { recursive: true }))}`,
+	);
 	assert.equal(code, 0, `child stderr: ${childErr.join("")}`);
 	assert.match(chunks.join(""), /recovered after replay/);
 
-	const { openRuntime, createHodiporRegistry, RUN_CONTEXT } = await import("../src/runtime.mjs");
-	const opened = await openRuntime({
-		sessionStoragePath: join(home, "sessions", sessionId, "state.sqlite"),
-		models,
-		registry: createHodiporRegistry({ cwd: home }),
-	});
-	t.after(() => opened.harness.close(RUN_CONTEXT).catch(() => {}));
-	const conversationId = (await opened.harness.commit((tx) => tx.scanConversations({}, 1), RUN_CONTEXT)).items[0].id;
-	const state = stripReceipts(await opened.harness.snapshot(TodoDoc, conversationId, RUN_CONTEXT));
-	assert.equal(state.tasks.length, 1, "no duplicate task after replay");
-	assert.equal(state.tasks[0].subject, "crash survivor");
-	assert.equal(state.nextId, 2);
-	// The replayed call produced exactly one committed tool result.
-	const conversation = await opened.harness.conversation(conversationId, RUN_CONTEXT);
-	const page = await conversation.entries({}, 100, undefined, RUN_CONTEXT);
-	const created = page.items.filter(
-		(entry) => entry.kind === "pi.tool-result" && JSON.stringify(entry.model ?? []).includes("Created #1"),
-	);
-	assert.equal(created.length, 1, `tool results: ${created.length}`);
+	await bounded("reopen verification", (async () => {
+		const { openRuntime, createHodiporRegistry, RUN_CONTEXT } = await import("../src/runtime.mjs");
+		const opened = await openRuntime({
+			sessionStoragePath: join(home, "sessions", sessionId, "state.sqlite"),
+			models,
+			registry: createHodiporRegistry({ cwd: home }),
+		});
+		try {
+			const conversationId = (await opened.harness.commit((tx) => tx.scanConversations({}, 1), RUN_CONTEXT)).items[0].id;
+			const state = stripReceipts(await opened.harness.snapshot(TodoDoc, conversationId, RUN_CONTEXT));
+			assert.equal(state.tasks.length, 1, "no duplicate task after replay");
+			assert.equal(state.tasks[0].subject, "crash survivor");
+			assert.equal(state.nextId, 2);
+			// The replayed call produced exactly one committed tool result.
+			const conversation = await opened.harness.conversation(conversationId, RUN_CONTEXT);
+			const page = await conversation.entries({}, 100, undefined, RUN_CONTEXT);
+			const created = page.items.filter(
+				(entry) => entry.kind === "pi.tool-result" && JSON.stringify(entry.model ?? []).includes("Created #1"),
+			);
+			assert.equal(created.length, 1, `tool results: ${created.length}`);
+		} finally {
+			// Released inline, before the rm hook runs: an open SQLite handle is an EBUSY on Windows.
+			await opened.harness.close(RUN_CONTEXT).catch(() => {});
+		}
+	})(), () => `session files: ${JSON.stringify(readdirSync(join(home, "sessions"), { recursive: true }))}`);
 });
