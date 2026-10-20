@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 /** @param {string[]} argv */
 export function parseCliArgs(argv) {
@@ -31,6 +33,17 @@ function value(argv, index, flag) {
 	return v;
 }
 
+/** A piped stdout/stderr is async on Windows; plain writes are lost when the caller exits right after.
+ * @param {import("node:stream").Writable} stream
+ * @param {string} text
+ * @returns {Promise<void>}
+ */
+function emit(stream, text) {
+	return /** @type {Promise<void>} */ (new Promise((resolve) => {
+		stream.write(text, () => resolve());
+	}));
+}
+
 const USAGE = `Hodipor — a general-purpose, durable-native terminal agent.
 
 Usage:
@@ -60,17 +73,17 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 	try {
 		options = parseCliArgs(argv);
 	} catch (/** @type {any} */ error) {
-		process.stderr.write(`hodipor: ${error.message}\n\n${USAGE}\n`);
+		await emit(process.stderr, `hodipor: ${error.message}\n\n${USAGE}\n`);
 		return 2;
 	}
 	if (options.help) {
-		process.stdout.write(USAGE + "\n");
+		await emit(process.stdout, USAGE + "\n");
 		return 0;
 	}
 	if (options.version) {
 		const { readFile } = await import("node:fs/promises");
 		const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-		process.stdout.write(`hodipor ${pkg.version} (durable)\n`);
+		await emit(process.stdout, `hodipor ${pkg.version} (durable)\n`);
 		return 0;
 	}
 
@@ -83,7 +96,8 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 	const models = inject.models ?? (await createHodiporModels({ agentDir: paths.agentDir }));
 	const modelRef = await defaultModelRef(models, options.model);
 	if (!modelRef && (options.print || !process.stdout.isTTY || !process.stdin.isTTY)) {
-		process.stderr.write(
+		await emit(
+			process.stderr,
 			"hodipor: no model available. Configure a provider (interactive /login) or pass --model provider/model.\n",
 		);
 		return 1;
@@ -100,12 +114,26 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 	});
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+/**
+ * Bun/npm global installs put a symlink on PATH (`~/.bun/bin/hodipor`), so
+ * `process.argv[1]` is the link while `import.meta.url` is the real file.
+ * Compare resolved paths, not stringified URLs.
+ * @param {string} a @param {string} b
+ */
+function samePath(a, b) {
+	try {
+		return realpathSync(a) === realpathSync(b);
+	} catch {
+		return false;
+	}
+}
+
+const invokedDirectly = process.argv[1] !== undefined && samePath(process.argv[1], fileURLToPath(import.meta.url));
 if (invokedDirectly) {
 	main().then(
 		(code) => process.exit(code ?? 0),
-		(error) => {
-			process.stderr.write(`hodipor: ${error instanceof Error ? error.message : String(error)}\n`);
+		async (error) => {
+			await emit(process.stderr, `hodipor: ${error instanceof Error ? error.message : String(error)}\n`);
 			process.exit(1);
 		},
 	);

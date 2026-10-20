@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
@@ -11,7 +11,8 @@ import { sessionStoragePath, openRuntime, createHodiporRegistry, RUN_CONTEXT } f
 
 async function tempHome(t) {
 	const root = await mkdtemp(join(tmpdir(), "hodipor-durable-"));
-	t.after(() => rm(root, { recursive: true, force: true }));
+	// Windows: deleting a still-held file fails with EBUSY; retry instead of failing the hook.
+	t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 	return root;
 }
 
@@ -35,7 +36,8 @@ test("home resolution: defaults, explicit --home/--cwd, relative paths anchor to
 	assert.equal(explicit.cwd, join(here, "rel-project"));
 
 	const absolute = resolveHome({ home: "/x/h", cwd: "/x/p" });
-	assert.equal(absolute.cwd, "/x/p");
+	// On Windows "/x" anchors to the current drive root rather than a POSIX root.
+	assert.equal(absolute.cwd, resolve("/x/p"));
 });
 
 test("session lock: second open of live storage is refused, stale lock is taken over", async (t) => {
@@ -183,10 +185,13 @@ async function waitFor(predicate, { timeoutMs = 15000, stepMs = 50 } = {}) {
 test("crash mid-tool: reopen takes over the stale lock, tool is not duplicated, run completes", async (t) => {
 	const home = await tempHome(t);
 	const marker = join(home, "marker.log");
+	// The tool command runs under bash on every platform: backslashes in a Windows path would be
+	// eaten by bash, so embed the marker with forward slashes (MSYS accepts drive-letter paths).
+	const bashMarker = marker.replaceAll("\\", "/");
 	const scriptPath = join(home, "faux-script.json");
 	// The bash tool runs long enough to be killed mid-execution; marker lines count executions.
 	await writeFile(scriptPath, JSON.stringify([
-		{ toolCall: "bash", args: { command: `echo started >> ${marker} && sleep 30 && echo done >> ${marker}` } },
+		{ toolCall: "bash", args: { command: `echo started >> ${bashMarker} && sleep 30 && echo done >> ${bashMarker}` } },
 		"recovered after crash",
 	]));
 
@@ -198,9 +203,12 @@ test("crash mid-tool: reopen takes over the stale lock, tool is not duplicated, 
 	const childErr = [];
 	child.stderr.on("data", (chunk) => childErr.push(String(chunk)));
 
-	assert(await waitFor(() => existsSync(marker)), "tool started before the crash");
+	// Kill before asserting: after hooks run FIFO and a failed hook skips the rest, so an early
+	// assert would leave the child alive to race the cleanup rm for its SQLite handle.
+	const started = await waitFor(() => existsSync(marker));
 	child.kill("SIGKILL");
 	await new Promise((resolve) => child.on("exit", resolve));
+	assert(started, "tool started before the crash");
 
 	// Reopen: the stale lock (dead pid) must be taken over, not refused. Recovery first finishes
 	// the interrupted run (one call seeing the interrupted tool result), then answers the new input.

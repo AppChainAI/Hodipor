@@ -28,7 +28,6 @@ async function waitFor(predicate, { timeoutMs = 15000 } = {}) {
  */
 test("todo create survives a crash between state commit and result commit", async (t) => {
 	const home = await mkdtemp(join(tmpdir(), "hodipor-todo-crash-"));
-	t.after(() => rm(home, { recursive: true, force: true }));
 	const marker = join(home, "committed.marker");
 	const scriptPath = join(home, "faux.json");
 	await writeFile(scriptPath, JSON.stringify([{ toolCall: "todo", args: { action: "create", subject: "crash survivor" } }, "never reached"]));
@@ -39,6 +38,9 @@ test("todo create survives a crash between state commit and result commit", asyn
 		{ cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] },
 	);
 	t.after(() => child.kill("SIGKILL"));
+	// Registered after the kill: hooks run FIFO, so the child dies before the home is removed, and
+	// Windows gets EBUSY retries for handles (SQLite, antivirus) released shortly before.
+	t.after(() => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 	const exited = new Promise((resolve) => child.once("exit", resolve));
 	const childErr = [];
 	child.stderr.on("data", (chunk) => childErr.push(String(chunk)));

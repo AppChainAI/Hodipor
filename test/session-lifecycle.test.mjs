@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { spawn } from "node:child_process";
 import { createModels } from "@earendil-works/pi-ai/models";
@@ -13,7 +13,8 @@ import { RUN_CONTEXT } from "../src/runtime.mjs";
 
 async function fixture(t) {
 	const home = await mkdtemp(join(tmpdir(), "hodipor-lifecycle-"));
-	t.after(() => rm(home, { recursive: true, force: true }));
+	// Windows: deleting a still-held file fails with EBUSY; retry instead of failing the hook.
+	t.after(() => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 	const models = createModels();
 	const faux = fauxProvider({ models: [{ id: "faux-1", reasoning: true }] });
 	models.setProvider(faux.provider);
@@ -119,7 +120,7 @@ test("legacy agent-dir configuration cannot silently select different credential
 	process.env.HODIPOR_AGENT_DIR = "/legacy/agent";
 	try {
 		assert.throws(() => resolveHome(), /HODIPOR_AGENT_DIR.*--home/);
-		assert.equal(resolveHome({ home: "/explicit/home" }).home, "/explicit/home");
+		assert.equal(resolveHome({ home: "/explicit/home" }).home, resolve("/explicit/home"));
 	} finally {
 		if (previous === undefined) delete process.env.HODIPOR_AGENT_DIR;
 		else process.env.HODIPOR_AGENT_DIR = previous;

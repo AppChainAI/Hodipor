@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { stripVTControlCharacters as plain } from "node:util";
 import { initTheme } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { setCapabilityOverrides, visibleWidth } from "@earendil-works/pi-tui";
 import { HodiporFooter, contextDisplayStats } from "../src/tui/footer.mjs";
 import { activeTheme } from "../src/tui/theme.mjs";
 
+// In 256-color mode the built-in dark/light "dim" tokens quantize to the same ANSI index, which
+// would collapse the raw-output comparison below; pin truecolor so the theme switch is observable.
+setCapabilityOverrides({ trueColor: true });
 initTheme("dark");
 const usage = { input: 20, output: 10, cacheRead: 30, cacheWrite: 0, totalTokens: 60, cost: { input: 0.1, output: 0.1, cacheRead: 0.1, cacheWrite: 0, total: 0.3 } };
 

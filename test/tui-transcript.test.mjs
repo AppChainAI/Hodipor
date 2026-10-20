@@ -16,7 +16,6 @@ const fakeTui = { requestRender() {}, setFocus() {}, showOverlay() {}, invalidat
 
 async function runtime(t, responses) {
 	const home = await mkdtemp(join(tmpdir(), "hodipor-tui-"));
-	t.after(() => rm(home, { recursive: true, force: true }));
 	const faux = fauxProvider({ models: [{ id: "faux-1" }] });
 	faux.setResponses(responses);
 	const models = createModels();
@@ -30,6 +29,9 @@ async function runtime(t, responses) {
 		await opened.harness.close(RUN_CONTEXT);
 		await opened.release();
 	});
+	// Registered after the close: hooks run FIFO, so SQLite is released before the home is removed,
+	// and Windows gets EBUSY retries for handles released shortly before.
+	t.after(() => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 	return opened;
 }
 
