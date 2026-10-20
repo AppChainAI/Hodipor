@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,4 +59,16 @@ test("launcher: help, version, and unknown-option handling", async (t) => {
 	assert.ifError(empty.error);
 	assert.equal(empty.status, 1);
 	assert.match(empty.stderr, /no model available/);
+});
+
+test("launcher runs when invoked through a symlink (bun/npm link)", { skip: process.platform === "win32" && "symlinks need elevated privileges on Windows" }, async (t) => {
+	const root = await mkdtemp(join(tmpdir(), "hodipor-cli-link-"));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const link = join(root, "hodipor");
+	await symlink(cli, link);
+	const pkg = JSON.parse(await readFile(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
+	const result = spawnSync(process.execPath, [link, "--version"], { encoding: "utf8", timeout: 20_000 });
+	assert.ifError(result.error);
+	assert.equal(result.status, 0);
+	assert.match(result.stdout, new RegExp(`^hodipor ${pkg.version.replaceAll(".", "\\.")} \\(durable\\)`));
 });

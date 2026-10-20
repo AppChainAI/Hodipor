@@ -15,7 +15,7 @@ description: 在需要整理输入内容时使用。
 先明确用户要整理的内容与输出格式，再完成任务。
 ```
 
-启动时只索引名称、描述和文件路径，模型按需读全文；`/skill:example` 显式加载。项目技能当前放到 `<cwd>/.pi/skills/`；所用 Pi 1.3.0 `loadSkills` 不会自动扫描 `.agents/skills/`。
+启动时只索引名称、描述和文件路径，模型按需读全文；`/skill:example` 显式加载。项目技能可放到 `<cwd>/.pi/skills/` 或通用 `.agents/skills/`（从工作目录向祖先目录发现，遇含 `.git` 的仓库根停止）；同名冲突时先发现者优先，即 `.pi/skills` 优先于 `.agents/skills`。通用用户级目录 `~/.agents/skills/`（与 Codex/OpenCode 共享）也会加载，优先级最低；Hodipor 专属的 `<home>/agent/skills/` 优先级最高。
 
 ## 提示词模板
 

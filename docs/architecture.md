@@ -56,4 +56,4 @@ extensions/todo/               durable 原生 todo 扩展（工具 + 事务文�
 
 ## 尚未接入
 
-MCP、会话树浏览（`/tree`）、HTML 导出、旧 Pi 插件兼容、虚拟模型路由、`/reload`、用户 durable 扩展自动发现、除主题之外的 settings 装配、项目主题与自定义主题热重载。当前 home 的 theme 设置和自定义主题已接通，支持 `/theme` 及终端自动配色。当前 Skill 发现为 `<home>/agent/skills` 与 `<cwd>/.pi/skills`；不自动扫描 `.agents/skills`。图片未做完整终端展示适配。真实 DeepSeek 对话/工具与 Apple Terminal、Warp 交互已验收，见 [终端验收记录](tui-interaction-acceptance.md)。其他供应商完整 OAuth、Windows/Linux、旧版本存储升级仍待验收；不以默认自动化测试通过代表上述能力已验证。
+MCP、会话树浏览（`/tree`）、HTML 导出、旧 Pi 插件兼容、虚拟模型路由、`/reload`、用户 durable 扩展自动发现、除主题之外的 settings 装配、项目主题与自定义主题热重载。当前 home 的 theme 设置和自定义主题已接通，支持 `/theme` 及终端自动配色。当前 Skill 发现为 `<home>/agent/skills`、`<cwd>/.pi/skills`，以及 Agent Skills 标准位置 `.agents/skills`：项目级从工作目录向祖先扫描、遇含 `.git` 的仓库根即止，用户级为全局 `~/.agents/skills`（与 Codex/OpenCode 一致；由宿主经 `skillPaths` 显式传入，同名先发现者优先）。图片未做完整终端展示适配。真实 DeepSeek 对话/工具与 Apple Terminal、Warp 交互已验收，见 [终端验收记录](tui-interaction-acceptance.md)。其他供应商完整 OAuth、Windows/Linux、旧版本存储升级仍待验收；不以默认自动化测试通过代表上述能力已验证。
