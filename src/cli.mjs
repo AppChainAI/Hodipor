@@ -68,8 +68,9 @@ export async function main(argv = process.argv.slice(2), inject = {}) {
 		return 0;
 	}
 	if (options.version) {
-		const { VERSION } = await import("@earendil-works/pi-coding-agent");
-		process.stdout.write(`siftory ${VERSION} (durable)\n`);
+		const { readFile } = await import("node:fs/promises");
+		const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+		process.stdout.write(`siftory ${pkg.version} (durable)\n`);
 		return 0;
 	}
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +36,9 @@ test("launcher: help, version, and unknown-option handling", async (t) => {
 	assert.equal(help.status, 0);
 	assert.match(help.stdout, /--home/);
 	assert.match(help.stdout, /--cwd/);
-	assert.match(run(["--version"]).stdout, /durable/);
+	const pkg = JSON.parse(await readFile(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
+	const version = run(["--version"]);
+	assert.match(version.stdout, new RegExp(`^siftory ${pkg.version.replaceAll(".", "\\.")} \\(durable\\)`));
 	const bad = run(["--nope"]);
 	assert.equal(bad.status, 2);
 	assert.match(bad.stderr, /unknown option/);
